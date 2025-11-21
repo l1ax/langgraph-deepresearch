@@ -1,0 +1,5 @@
+{
+    "graphs": {
+        "deepResearch": "./src/graph/index.ts:graph"
+    }
+}
