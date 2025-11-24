@@ -7,10 +7,11 @@ dotenv.config();
 class DeepSeek {
     openai: OpenAI;
 
-    constructor() {
+    constructor(params: Partial<ChatCompletionCreateParamsNonStreaming> = {}) {
         const client = new OpenAI({
             apiKey: process.env.DEEPSEEK_API_KEY,
             baseURL: process.env.DEEPSEEK_BASE_URL,
+            ...params
         });
 
         this.openai = wrapOpenAI(client, {

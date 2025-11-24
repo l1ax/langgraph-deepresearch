@@ -1,5 +1,5 @@
 {
     "graphs": {
-        "deepResearch": "./src/graph/index.ts:graph"
+        "researchAgent": "./src/graph/researchAgentGraph.ts:researchAgentGraph"
     }
 }
