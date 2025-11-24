@@ -9,10 +9,10 @@
 
 import { SystemMessage } from '@langchain/core/messages';
 import { ChatDeepSeek } from '@langchain/deepseek';
-import { ResearcherStateAnnotation } from '../state';
-import { researchAgentPrompt } from '../prompts';
-import { getTodayStr } from '../utils';
-import { tavilySearchTool, thinkTool } from '../tools';
+import { ResearcherStateAnnotation } from '../../state';
+import { researchAgentPrompt } from '../../prompts';
+import { getTodayStr } from '../../utils';
+import { tavilySearchTool, thinkTool } from '../../tools';
 import dotenv from 'dotenv';
 dotenv.config();
 
