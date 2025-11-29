@@ -1,5 +1,6 @@
 {
     "graphs": {
-        "researchAgent": "./src/graph/researchAgentGraph.ts:researchAgentGraph"
+        "researchAgent": "./src/graph/researchAgentGraph.ts:researchAgentGraph",
+        "researchAgentMcp": "./src/graph/researchAgentMcpGraph.ts:researchAgentMcpGraph"
     }
 }

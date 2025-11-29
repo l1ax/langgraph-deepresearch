@@ -7,3 +7,5 @@ export { writeResearchBrief } from './scope/briefGeneration';
 export { researchLlmCall } from './researchAgent/llmCall';
 export { compressResearch } from './researchAgent/compressResearch';
 export { researchToolNode } from './researchAgent/toolNode';
+export { researchMcpLlmCall } from './researchAgentMcp/llmCall';
+export { researchMcpToolNode } from './researchAgentMcp/toolNode';
