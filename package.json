@@ -10,7 +10,8 @@
     "clean": "rm -rf dist",
     "test": "echo \"Error: no test specified\" && exit 1",
     "evaluate:scope": "tsx evaluation/scope/run.ts",
-    "evaluate:supervisor": "tsx evaluation/supervisor/run.ts"
+    "evaluate:supervisor": "tsx evaluation/supervisor/run.ts",
+    "evaluate:researchAgent": "tsx evaluation/researchAgent/run.ts"
   },
   "keywords": [],
   "author": "",

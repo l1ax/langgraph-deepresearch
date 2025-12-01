@@ -1,48 +1,11 @@
-# Deep Research Agent
-## scope
-划定研究范围，生成研究简报
+/**
+ * Research Agent 评估数据集
+ *
+ * 此数据集用于评估 research agent 是否能够正确判断何时继续或停止调用工具
+ */
 
-### 关键节点
-#### Clarify With User
-用户需求澄清阶段，确保用户提供了足够多的信息来开展接下来的research
+import { HumanMessage, AIMessage, BaseMessage, ToolMessage } from "@langchain/core/messages";
 
-#### Research Brief Generation
-根据用户的信息，使用第一人称生成研究简报，确保简报的内容准确且无信息丢失
-
-### 评测
-两个方面：
-1. research brief中没有丢失用户的信息
-2. research brief中没有对 用户未提及的部分 做出假设。
-
-#### Example
-```javascript
-conversation_1 = [
-    HumanMessage(content="What's the best way to invest $50,000 for retirement?"),
-    AIMessage(content="Could you please provide some additional information to tailor the investment advice for your $50,000 retirement goal? Specifically:\n Your current age or desired retirement age\n Your risk tolerance (low, medium, high)\n Any preferences for investment types (e.g., stocks, bonds, mutual funds, real estate)\n Whether you are investing through a tax-advantaged account (e.g., IRA, 401(k)) or a regular brokerage account\n This will help me provide more personalized and relevant suggestions."),
-    HumanMessage(content="I'm 25 and I want to retire by 45. My risk tolerance is high right now but I think will decrease over time. I have heard that stocks and ETFs are a good choice, but I'm open to anything. And I already have a 401k, but this would just be through a regular brokerage account."),
-]
-```
-基于这个案例，我们期望llm能够提取出以下几个信息：
-- "Current age is 25",
-- "Desired retirement age is 45",
-- "Current risk tolerance is high",
-- "Interested in investing in stocks and ETFs",
-- "Open to forms of investment beyond stocks and ETFs"
-- "Investment account is a regular brokerage account"
-
-且确保生成的brief中不包含任何假设信息
-
-## research agent
-### 流程
-[llmCall -> [tavilySearch -> thinkTool -> tavilySearch -> ...] -> compressResearch]
-基础的研究Agent，主要工作流程为：
-1. 接收research brief, research agent 根据system prompt和brief 按照【tavilySearch -> thinkTool -> tavilySearch ..】的工具调用顺序进行循环
-2. 当research Agent根据目前的上下文（包括thinkTool的reflection & tavily Search 压缩后的结果）认为 目前的信息已经足够回答时，就运行到compressResearch节点，进行研究信息和结果的压缩
-
-### 评测
-这个阶段主要评估 工具调用循环的可靠性，尤其是llm能否正确判断 上下文信息足够回答，是否会陷入 过度收集信息 or 目标偏移的问题
-#### Example
-```javascript
 /**
  * 场景 1: Agent 应该继续 - 信息不足/不相关 + think_tool 意识到需要更多研究
  */
@@ -154,5 +117,34 @@ This provides a comprehensive assessment of SF coffee shops based specifically o
         tool_call_id: 'call_stop_think_001'
     }),
 ];
-```
-通过判断最后llmCall中是否存在 toolCall 来判断llm决定继续工具循环 or 终止。
+
+/**
+ * 评估数据集
+ *
+ * 每个示例包含:
+ * - inputs: 输入消息历史
+ * - outputs: 期望的下一步动作（continue 或 stop）
+ */
+export const evaluationDataset = [
+    {
+        inputs: {
+            researcher_messages: messagesShouldContinue
+        },
+        outputs: {
+            next_step: 'continue'
+        }
+    },
+    {
+        inputs: {
+            researcher_messages: messagesShouldStop
+        },
+        outputs: {
+            next_step: 'stop'
+        }
+    }
+];
+
+export {
+    messagesShouldContinue,
+    messagesShouldStop
+}
