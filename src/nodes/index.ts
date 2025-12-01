@@ -11,3 +11,4 @@ export { researchMcpLlmCall } from './researchAgentMcp/llmCall';
 export { researchMcpToolNode } from './researchAgentMcp/toolNode';
 export { supervisor } from './supervisor/supervisor';
 export { supervisorTools } from './supervisor/supervisorTools';
+export { finalReportGeneration } from './fullAgent/finalReportGeneration';

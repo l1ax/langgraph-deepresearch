@@ -19,8 +19,11 @@ import type { RunnableConfig } from '@langchain/core/runnables';
 dotenv.config();
 
 // 配置监督器模型
+// 注意：使用 deepseek-chat 而非 deepseek-reasoner
+// deepseek-reasoner 在工具调用时需要特殊的 reasoning_content 字段
+// deepseek-chat 对工具调用有更好的支持
 const supervisorModel = new ChatDeepSeek({
-    model: 'deepseek-reasoner',
+    model: 'deepseek-chat',
     temperature: 0,
     configuration: {
         baseURL: process.env.DEEPSEEK_BASE_URL,
