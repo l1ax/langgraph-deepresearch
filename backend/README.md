@@ -174,3 +174,5 @@ supervisor 通过 工具循环 进行任务分发与终止研究，其拥有的�
 supervisor的评测主要评估其 判断是否可以使用并行化研究 的准确度。
 通常在需要研究多个子主题，且子主题之间没有明显依赖关系时可以使用并行化研究，比如compare类型主题。
 
+## 待修复的问题
+- supervisor 生成子agent research topic时，会使用模型的过期信息影响研究，比如topic是 research Google's AI model and architectures，在生成子agent topic时他会有 "eg: gemini-1.5-pro"的过期信息
