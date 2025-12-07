@@ -13,7 +13,9 @@ import { ResearcherStateAnnotation } from '../../state';
 import { researchAgentPrompt } from '../../prompts';
 import { getTodayStr } from '../../utils';
 import { tavilySearchTool, thinkTool } from '../../tools';
+import { ChatEvent } from '../../outputAdapters';
 import dotenv from 'dotenv';
+import { LangGraphRunnableConfig } from '@langchain/langgraph';
 dotenv.config();
 
 const model = new ChatDeepSeek({
@@ -29,8 +31,30 @@ const tools = [tavilySearchTool, thinkTool];
 
 const modelWithTools = model.bindTools(tools);
 
+/**
+ * 从 LLM 响应中提取文本内容
+ */
+function extractContent(content: unknown): string {
+    if (typeof content === 'string') {
+        return content;
+    }
+    if (Array.isArray(content)) {
+        return content
+            .map(block => {
+                if (typeof block === 'string') return block;
+                if (block && typeof block === 'object' && 'text' in block) {
+                    return (block as { text: string }).text;
+                }
+                return '';
+            })
+            .join('');
+    }
+    return '';
+}
+
 export async function researchLlmCall(
-    state: typeof ResearcherStateAnnotation.State
+    state: typeof ResearcherStateAnnotation.State,
+    config: LangGraphRunnableConfig
 ) {
     // 使用当前日期格式化提示词
     const systemPrompt = researchAgentPrompt.replace('{date}', getTodayStr());
@@ -40,6 +64,16 @@ export async function researchLlmCall(
         new SystemMessage({ content: systemPrompt }),
         ...state.researcher_messages,
     ]);
+
+    // 如果 LLM 返回了文本内容（不是工具调用），发送 ChatEvent
+    const textContent = extractContent(response.content);
+    console.log('textContent', textContent);
+    console.log('content', response.content);
+    if (textContent && config.writer) {
+        const chatEvent = new ChatEvent();
+        chatEvent.setMessage(textContent);
+        config.writer(chatEvent.setStatus('finished').toJSON());
+    }
 
     return {
         researcher_messages: [response],

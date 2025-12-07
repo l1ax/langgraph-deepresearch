@@ -13,11 +13,13 @@ import { EventRendererRegistry, EventView } from '@/services';
 import { ClarifyEventRenderer } from '@/components/ClarifyEventRenderer';
 import { BriefEventRenderer } from '@/components/BriefEventRenderer';
 import { ChatEventRenderer } from '@/components/ChatEventRenderer';
+import { ToolCallEventRenderer } from '@/components/ToolCallEventRenderer';
 
 // 注册渲染器
 EventRendererRegistry.register<Executor.ClarifyEventData>('clarify', ClarifyEventRenderer);
 EventRendererRegistry.register<Executor.BriefEventData>('brief', BriefEventRenderer);
 EventRendererRegistry.register<Executor.ChatEventData>('chat', ChatEventRenderer);
+EventRendererRegistry.register<Executor.ToolCallEventData>('tool_call', ToolCallEventRenderer);
 
 /** 用户消息元素渲染组件 */
 const UserElementRenderer = observer<{ element: Conversation.UserElement }>(({ element }) => (
@@ -33,21 +35,77 @@ const UserElementRenderer = observer<{ element: Conversation.UserElement }>(({ e
   </div>
 ));
 
-/** 助手消息元素渲染组件 */
-const AssistantElementRenderer = observer<{ element: Conversation.AssistantElement }>(({ element }) => (
-  <div className="flex w-full gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300 justify-start pr-12">
-    <Avatar className="h-8 w-8 border bg-background shadow-sm shrink-0">
-      <AvatarFallback className="bg-primary/5 text-primary">
-        <Bot className="h-4 w-4" />
-      </AvatarFallback>
-    </Avatar>
-    <div className="flex-1 space-y-3">
-      {element.events.map((event) => (
-        <EventView key={event.id} event={event} />
-      ))}
+/** 工具调用组渲染组件 */
+const ToolCallGroupRenderer = observer<{ events: Executor.OutputEvent[] }>(({ events }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  
+  // 自动滚动到底部
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [events.length, events[events.length - 1]?.status]);
+
+  return (
+    <div className="rounded-lg border bg-muted/30 p-2">
+      <div 
+        ref={scrollRef}
+        className="max-h-[240px] overflow-y-auto space-y-1 pr-1 custom-scrollbar scroll-smooth"
+      >
+        {events.map((event) => (
+          <EventView key={event.id} event={event} />
+        ))}
+      </div>
     </div>
-  </div>
-));
+  );
+});
+
+/** 助手消息元素渲染组件 */
+const AssistantElementRenderer = observer<{ element: Conversation.AssistantElement }>(({ element }) => {
+  // 对事件进行分组，连续的 tool_call 事件合并为一组
+  const groupedEvents = useMemo(() => {
+    const groups: (Executor.OutputEvent | { type: 'tool_group', events: Executor.OutputEvent[] })[] = [];
+    let currentToolGroup: Executor.OutputEvent[] = [];
+
+    element.events.forEach((event) => {
+      if (event.eventType === 'tool_call') {
+        currentToolGroup.push(event);
+      } else {
+        if (currentToolGroup.length > 0) {
+          groups.push({ type: 'tool_group', events: [...currentToolGroup] });
+          currentToolGroup = [];
+        }
+        groups.push(event);
+      }
+    });
+
+    if (currentToolGroup.length > 0) {
+      groups.push({ type: 'tool_group', events: [...currentToolGroup] });
+    }
+
+    return groups;
+  }, [element.events.length, element.events]);
+
+  return (
+    <div className="flex w-full gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300 justify-start pr-12">
+      <Avatar className="h-8 w-8 border bg-background shadow-sm shrink-0">
+        <AvatarFallback className="bg-primary/5 text-primary">
+          <Bot className="h-4 w-4" />
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex-1 space-y-3 min-w-0">
+        {groupedEvents.map((group, index) => {
+          if ('type' in group && group.type === 'tool_group') {
+            return <ToolCallGroupRenderer key={`group-${group.events[0].id}`} events={group.events} />;
+          }
+          // 这里 group 就是 OutputEvent
+          const event = group as Executor.OutputEvent;
+          return <EventView key={event.id} event={event} />;
+        })}
+      </div>
+    </div>
+  );
+});
 
 /** 元素渲染组件 - 根据类型分发到对应渲染器 */
 const ElementRenderer = observer<{ element: Conversation.Element }>(({ element }) => {

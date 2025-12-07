@@ -44,7 +44,7 @@ function shouldContinue(state: typeof ResearcherStateAnnotation.State) {
 const graphBuilder = new StateGraph(ResearcherStateAnnotation)
 
 // 编译代理
-export const researchAgentGraph = graphBuilder
+const compiledGraph = graphBuilder
     .addNode('llm_call', researchLlmCall)
     .addNode('tool_node', researchToolNode)
     .addNode('compress_research', compressResearch)
@@ -54,5 +54,8 @@ export const researchAgentGraph = graphBuilder
     .addEdge('compress_research', END)
     .compile();
 
-researchAgentGraph.name = 'researchAgent';
+// 导出时设置名称
+export const researchAgentGraph = Object.assign(compiledGraph, {
+    name: 'researchAgent'
+});
 

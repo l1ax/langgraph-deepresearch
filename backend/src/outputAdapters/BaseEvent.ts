@@ -39,7 +39,7 @@ export namespace BaseEvent {
     export type EventStatus = 'pending' | 'running' | 'finished' | 'error';
 
     /** 事件类型 */
-    export type EventType = 'clarify' | 'brief';
+    export type EventType = 'clarify' | 'brief' | 'tool_call' | 'chat';
 
     /** 事件内容 */
     export interface IContent {

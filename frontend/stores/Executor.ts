@@ -2,7 +2,7 @@ import { observable, action, computed, makeObservable } from 'mobx';
 import { Client } from '@langchain/langgraph-sdk';
 
 // Configuration
-const GRAPH_ID = 'scopeAgent';
+const GRAPH_ID = 'researchAgent';
 const API_URL = 'http://localhost:2024';
 
 /**
@@ -104,9 +104,12 @@ export class Executor {
     try {
       const stream = this.client.runs.stream(this.threadId, GRAPH_ID, {
         input: {
-          messages: [{ role: 'user', content }],
+          researcher_messages: [{ role: 'user', content }],
         },
         streamMode: 'custom',
+        config: {
+          recursion_limit: 100, // 50 次循环 = llm_call + tool_node 各执行 50 次 = 100 步
+        },
       });
 
       for await (const chunk of stream) {
@@ -142,7 +145,7 @@ export class Executor {
 
 export namespace Executor {
   /** 事件类型 */
-  export type EventType = 'clarify' | 'brief' | 'chat';
+  export type EventType = 'clarify' | 'brief' | 'chat' | 'tool_call';
 
   /** 事件状态 */
   export type EventStatus = 'pending' | 'running' | 'finished' | 'error';
@@ -224,6 +227,21 @@ export namespace Executor {
     /** 消息内容 */
     message: string;
   }
+
+  /** ToolCall 事件数据 */
+  export interface ToolCallEventData {
+    /** 工具名称 */
+    tool_name: string;
+    /** 工具参数 */
+    tool_arguments: unknown;
+    /** 工具调用 ID */
+    tool_call_id: string;
+    /** 工具调用结果 */
+    tool_result: unknown;
+  }
+
+  /** ToolCall 事件类型 */
+  export type ToolCallEvent = OutputEvent<ToolCallEventData>;
 
   /**
    * 创建 Chat 事件数据（前端本地创建，用于欢迎消息、错误消息等）
