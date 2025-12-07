@@ -10,8 +10,9 @@ import { StateAnnotation } from '../../state';
 import { finalReportGenerationPrompt } from '../../prompts';
 import { getTodayStr } from '../../utils';
 import dotenv from 'dotenv';
-import type { RunnableConfig } from '@langchain/core/runnables';
 import {ChatDeepSeek} from '@langchain/deepseek';
+import {LangGraphRunnableConfig} from '@langchain/langgraph';
+import {ChatEvent} from '../../outputAdapters';
 dotenv.config();
 
 // 配置写作模型
@@ -40,13 +41,29 @@ const writerModel = new ChatDeepSeek({
  */
 export async function finalReportGeneration(
     state: typeof StateAnnotation.State,
-    config?: RunnableConfig
+    config: LangGraphRunnableConfig
 ) {
+    // 更新 supervisorGroupEvent 的 status 为 finished 并写入
+    const supervisorGroupEvent = state.supervisor_group_event;
+    if (supervisorGroupEvent && config.writer) {
+        const updatedEvent = {
+            ...supervisorGroupEvent,
+            status: 'finished' as const,
+        };
+        config.writer(updatedEvent);
+    }
+
     const notes = state.notes || [];
     const researchBrief = state.research_brief || '';
 
     // 合并所有研究笔记
     const findings = notes.join('\n\n');
+
+    const chatEvent = new ChatEvent('ai');
+    chatEvent.setMessage('Generating final report...');
+    if (config.writer) {
+        config.writer(chatEvent.setStatus('running').toJSON());
+    }
 
     // 准备最终报告生成提示词
     const finalReportPrompt = finalReportGenerationPrompt
@@ -55,13 +72,26 @@ export async function finalReportGeneration(
         .replace('{date}', getTodayStr());
 
     // 生成最终报告
-    const response = await writerModel.invoke(
+    const response = await writerModel.stream(
         [new HumanMessage({ content: finalReportPrompt })],
         config
     );
 
+    let finalReport = '';
+
+    for await (const chunk of response) {
+        finalReport += chunk.content as string;
+        if (config.writer) {
+            config.writer(chatEvent.setMessage(finalReport).setStatus('running').toJSON());
+        }
+    }
+
+    if (config.writer) {
+        config.writer(chatEvent.setStatus('finished').toJSON());
+    }
+
     return {
-        final_report: response.content as string,
-        messages: [new HumanMessage({ content: 'Here is the final report: ' + response.content })],
+        final_report: finalReport,
+        messages: [new HumanMessage({ content: 'Here is the final report: ' + finalReport })],
     };
 }

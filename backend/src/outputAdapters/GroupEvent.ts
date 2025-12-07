@@ -1,15 +1,17 @@
+/**
+ * @file 聚合事件，用于聚合后续的子事件
+ */
+
 import {BaseEvent} from './BaseEvent';
 
-export class BriefEvent extends BaseEvent<BriefEvent.IContent> {
-    content: BriefEvent.IContent = {
+export class GroupEvent extends BaseEvent<GroupEvent.IContent> {
+    content: GroupEvent.IContent = {
         contentType: 'text',
-        data: {
-            research_brief: '',
-        },
+        data: null,
     };
 
-    constructor() {
-        super('/ai/brief');
+    constructor(roleName: BaseEvent.RoleName) {
+        super(BaseEvent.createEventType(roleName, 'group'));
     }
 
     toJSON(): Record<string, unknown> {
@@ -23,13 +25,9 @@ export class BriefEvent extends BaseEvent<BriefEvent.IContent> {
     }
 }
 
-export namespace BriefEvent {
+export namespace GroupEvent {
     export interface IContent {
         contentType: 'text';
-        data: {
-            /** 研究概要内容 */
-            research_brief: string;
-        };
+        data: null;
     }
 }
-

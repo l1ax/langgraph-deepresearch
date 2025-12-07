@@ -1,7 +1,8 @@
 import { observable, action, flow, computed, makeObservable } from 'mobx';
 import { Executor } from './Executor';
 import { Conversation } from './Conversation';
-import { AnyEvent, ChatEvent } from './events';
+import { ChatEvent } from './events';
+import { ExecutionResponse } from './ExecutionResponse';
 
 /**
  * DeepResearchPageStore
@@ -54,7 +55,7 @@ export class DeepResearchPageStore {
       // 创建新会话
       if (this.executor.threadId) {
         const conversation = this.createConversation(this.executor.threadId);
-        // 添加欢迎消息
+        // 添加欢迎消息（只添加到 elements 中，不添加到 treeView）
         const welcomeEvent = ChatEvent.create(
           'welcome',
           '你好！我是 DeepResearch 助手。请告诉我你想研究什么主题？'
@@ -74,19 +75,11 @@ export class DeepResearchPageStore {
         `error-${Date.now()}`,
         content
       );
-      // 错误消息添加到当前的助手元素中
-      this.currentConversation.addEventToCurrentAssistant(errorEvent);
-    }
-  }
-
-  /**
-   * 事件创建后的回调方法
-   * 将 event 添加到当前助手元素
-   */
-  @action.bound
-  private handleEventCreated(event: AnyEvent) {
-    if (this.currentConversation) {
-      this.currentConversation.addEventToCurrentAssistant(event);
+      // 创建包含错误事件的 ExecutionResponse
+      const executionResponse = new ExecutionResponse();
+      executionResponse.upsertEvent(errorEvent);
+      executionResponse.markCompleted();
+      this.currentConversation.addExecutionResponse(executionResponse);
     }
   }
 
@@ -98,24 +91,28 @@ export class DeepResearchPageStore {
 
     const userMessageContent = this.inputValue;
 
-    // 添加用户消息到当前会话（会自动创建新的助手元素）
+    // 添加用户消息到当前会话
     this.currentConversation.addUserMessage(userMessageContent);
     this.clearInput();
 
+    // 先创建 ExecutionResponse 并添加到 conversation，这样在流式接收过程中 UI 就能实时渲染
+    const executionResponse = new ExecutionResponse();
+    this.currentConversation.addExecutionResponse(executionResponse);
+
     try {
-      // 调用 executor，传入事件创建回调
-      yield this.executor.invoke(
-        userMessageContent,
-        this.handleEventCreated
-      );
+      // 调用 executor，传入 executionResponse，让它在流式接收过程中更新
+      yield this.executor.invoke(userMessageContent, executionResponse);
     } catch (error) {
       console.error('Error sending message:', error);
+      // 如果出错，移除刚才添加的 executionResponse，改用错误消息
+      const elements = this.currentConversation.elements;
+      const lastElement = elements[elements.length - 1];
+      if (Conversation.isAssistantElement(lastElement) && lastElement.executionResponse === executionResponse) {
+        elements.pop();
+      }
       this.addErrorMessage(
         '抱歉，处理您的请求时出现错误。请确保后端服务已启动 (http://localhost:2024)。'
       );
-    } finally {
-      // 完成当前助手元素的接收
-      this.currentConversation?.finishCurrentAssistant();
     }
   }
 

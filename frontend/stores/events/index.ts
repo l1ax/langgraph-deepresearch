@@ -3,15 +3,17 @@ export { ClarifyEvent } from './ClarifyEvent';
 export { BriefEvent } from './BriefEvent';
 export { ChatEvent } from './ChatEvent';
 export { ToolCallEvent } from './ToolCallEvent';
+export { GroupEvent } from './GroupEvent';
 
 import { BaseEvent } from './BaseEvent';
 import { ClarifyEvent } from './ClarifyEvent';
 import { BriefEvent } from './BriefEvent';
 import { ChatEvent } from './ChatEvent';
 import { ToolCallEvent } from './ToolCallEvent';
+import { GroupEvent } from './GroupEvent';
 
 /** 所有事件类型的联合类型 */
-export type AnyEvent = ClarifyEvent | BriefEvent | ChatEvent | ToolCallEvent;
+export type AnyEvent = ClarifyEvent | BriefEvent | ChatEvent | ToolCallEvent | GroupEvent;
 
 /**
  * 从后端数据创建事件实例
@@ -29,6 +31,8 @@ export function createEventFromData(data: BaseEvent.IEventData<unknown>): AnyEve
       return new ChatEvent(data as BaseEvent.IEventData<ChatEvent.IData>);
     case 'tool_call':
       return new ToolCallEvent(data as BaseEvent.IEventData<ToolCallEvent.IData>);
+    case 'group':
+      return new GroupEvent(data as BaseEvent.IEventData<GroupEvent.IData>);
     default:
       throw new Error(`Unknown event subType: ${subType}`);
   }
@@ -49,5 +53,9 @@ export function isChatEvent(event: AnyEvent): event is ChatEvent {
 
 export function isToolCallEvent(event: AnyEvent): event is ToolCallEvent {
   return event.subType === 'tool_call';
+}
+
+export function isGroupEvent(event: AnyEvent): event is GroupEvent {
+  return event.subType === 'group';
 }
 

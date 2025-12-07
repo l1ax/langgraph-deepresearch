@@ -24,6 +24,7 @@ export class ChatEvent extends BaseEvent<ChatEvent.IContent> {
             eventType: this.eventType,
             status: this.status,
             content: this.content,
+            ...(this.parentId && { parentId: this.parentId }),
         };
     }
 }

@@ -44,6 +44,18 @@ export const StateAnnotation = Annotation.Root({
             return right;
         },
     }),
+    supervisor_group_event: Annotation<Record<string, unknown> | null>({
+        default: () => null,
+        reducer: (_left: Record<string, unknown> | null, right: Record<string, unknown> | null) => {
+            return right;
+        },
+    }),
+    supervisor_group_id: Annotation<string | null>({
+        default: () => null,
+        reducer: (_left: string | null, right: string | null) => {
+            return right;
+        },
+    }),
 });
 
 /**
@@ -77,6 +89,12 @@ export const ResearcherStateAnnotation = Annotation.Root({
             return left.concat([right]);
         },
         default: () => [],
+    }),
+    researcher_group_id: Annotation<string | null>({
+        default: () => null,
+        reducer: (_left: string | null, right: string | null) => {
+            return right;
+        },
     }),
 });
 

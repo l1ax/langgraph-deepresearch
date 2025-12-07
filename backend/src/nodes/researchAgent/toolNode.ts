@@ -34,6 +34,9 @@ export async function researchToolNode(
         Array.isArray(lastMessage.tool_calls) &&
         lastMessage.tool_calls.length > 0
     ) {
+        // 获取 researcher_group_id
+        const researcherGroupId = state.researcher_group_id;
+
         for (const toolCall of lastMessage.tool_calls) {
             const event = new ToolCallEvent('researcher');
             const toolCallId = toolCall.id || '';
@@ -42,6 +45,11 @@ export async function researchToolNode(
                 toolCall.args,
                 toolCallId
             );
+
+            // 设置 parentId 为 researcher GroupEvent 的 id
+            if (researcherGroupId) {
+                event.setParentId(researcherGroupId);
+            }
 
             // 发送 running 状态
             if (config.writer) {

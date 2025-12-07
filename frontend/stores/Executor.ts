@@ -1,4 +1,4 @@
-import { observable, action, computed, makeObservable } from 'mobx';
+import { observable, action, makeObservable } from 'mobx';
 import { Client } from '@langchain/langgraph-sdk';
 import { 
   BaseEvent, 
@@ -9,9 +9,10 @@ import {
   ChatEvent,
   ToolCallEvent,
 } from './events';
+import { ExecutionResponse } from './ExecutionResponse';
 
 // Configuration
-const GRAPH_ID = 'supervisorAgent';
+const GRAPH_ID = 'fullResearchAgent';
 const API_URL = 'http://localhost:2024';
 
 /** 流式数据 chunk 结构 */
@@ -31,9 +32,6 @@ export class Executor {
 
   /** 当前会话线程 ID */
   @observable threadId: string | null = null;
-
-  /** 接收到的事件列表 */
-  @observable events: AnyEvent[] = [];
 
   /** 是否正在执行请求 */
   @observable isExecuting: boolean = false;
@@ -57,21 +55,24 @@ export class Executor {
 
   /** 根据 id 更新已存在的事件，如果不存在则添加 */
   @action.bound
-  private upsertEvent(data: BaseEvent.IEventData<unknown>): AnyEvent {
+  private upsertEvent(
+    data: BaseEvent.IEventData<unknown>,
+    executionResponse: ExecutionResponse
+  ): AnyEvent {
     const event = createEventFromData(data);
 
-    const index = this.events.findIndex(e => e.id === data.id);
-    if (index !== -1) {
-      // 替换整个对象，确保 MobX 能检测到变化
-      const oldEvent = this.events[index];
+    // 检查事件是否已存在于 executionResponse 中
+    const existingEvent = executionResponse.events.find(e => e.id === data.id);
+    
+    if (existingEvent) {
+      // 更新已存在的事件
       console.log(`[Executor] Updating event:`, {
         id: data.id,
-        oldStatus: oldEvent.status,
+        oldStatus: existingEvent.status,
         newStatus: event.status,
         eventType: event.eventType,
         subType: event.subType
       });
-      this.events[index] = event;
     } else {
       // 检查是否是 tool_call 事件，如果是，检查是否有相同 tool_call_id 但不同 id 的事件
       const { subType } = BaseEvent.parseEventType(data.eventType);
@@ -79,7 +80,7 @@ export class Executor {
         const toolData = (data.content.data as any);
         const toolCallId = toolData?.tool_call_id;
         if (toolCallId) {
-          const existingEvent = this.events.find(e => {
+          const existingEventWithSameToolCallId = executionResponse.events.find(e => {
             if (e.subType === 'tool_call') {
               const eToolData = (e.content.data as any);
               return eToolData?.tool_call_id === toolCallId && e.id !== data.id;
@@ -87,20 +88,15 @@ export class Executor {
             return false;
           });
           
-          if (existingEvent) {
+          if (existingEventWithSameToolCallId) {
             console.warn(`[Executor] Found existing event with same tool_call_id but different id:`, {
-              existingId: existingEvent.id,
-              existingStatus: existingEvent.status,
+              existingId: existingEventWithSameToolCallId.id,
+              existingStatus: existingEventWithSameToolCallId.status,
               newId: data.id,
               newStatus: data.status,
               tool_call_id: toolCallId,
               tool_name: toolData?.tool_name
             });
-            // 删除旧事件，添加新事件
-            const oldIndex = this.events.findIndex(e => e.id === existingEvent.id);
-            if (oldIndex !== -1) {
-              this.events.splice(oldIndex, 1);
-            }
           }
         }
       }
@@ -111,20 +107,19 @@ export class Executor {
         eventType: event.eventType,
         subType: event.subType
       });
-      this.events.push(event);
     }
-    return event;
-  }
 
-  /** 清空事件列表 */
-  @action.bound
-  clearEvents() {
-    this.events = [];
+    // 更新 executionResponse
+    executionResponse.upsertEvent(event);
+    return event;
   }
 
   /** 处理接收到的 chunk 数据，返回创建或更新的事件（如果有） */
   @action.bound
-  private handleChunk(chunk: StreamChunk): AnyEvent | null {
+  private handleChunk(
+    chunk: StreamChunk,
+    executionResponse: ExecutionResponse
+  ): AnyEvent | null {
     if (chunk.event === 'custom' && chunk.data) {
       const data = chunk.data as BaseEvent.IEventData<unknown>;
       if (data.eventType && data.id) {
@@ -145,7 +140,7 @@ export class Executor {
           }
         }
         
-        return this.upsertEvent(data);
+        return this.upsertEvent(data, executionResponse);
       }
     }
     return null;
@@ -160,23 +155,24 @@ export class Executor {
   /**
    * 执行对话请求
    * @param content 用户输入的内容
-   * @param onEventCreated 事件创建后的回调函数（可选）
+   * @param executionResponse 已创建的 ExecutionResponse 实例（可选，如果不提供则创建新的）
+   * @returns ExecutionResponse 包含本次执行的所有事件和 treeView
    */
   @action.bound
-  async invoke(
-    content: string,
-    onEventCreated?: (event: AnyEvent) => void
-  ): Promise<void> {
+  async invoke(content: string, executionResponse?: ExecutionResponse): Promise<ExecutionResponse> {
     if (!this.client || !this.threadId) {
       throw new Error('Executor not initialized');
     }
 
     this.setExecuting(true);
 
+    // 如果没有提供 executionResponse，创建新的
+    const response = executionResponse || new ExecutionResponse();
+
     try {
       const stream = this.client.runs.stream(this.threadId, GRAPH_ID, {
         input: {
-          supervisor_messages: [{ role: 'user', content }],
+          messages: [{ role: 'user', content }],
         },
         streamMode: 'custom',
         config: {
@@ -188,51 +184,24 @@ export class Executor {
       for await (const chunk of stream) {
         chunkCount++;
         console.log(`[Executor] Chunk #${chunkCount}:`, chunk);
-        const event = this.handleChunk(chunk as StreamChunk);
-        if (event && onEventCreated) {
-          console.log(`[Executor] Event created/updated:`, {
-            id: event.id,
-            eventType: event.eventType,
-            status: event.status,
-            subType: event.subType
-          });
-          onEventCreated(event);
-        }
+        this.handleChunk(chunk as StreamChunk, response);
       }
-      console.log(`[Executor] Stream ended normally after ${chunkCount} chunks`);
+
+      // 标记执行完成
+      response.markCompleted();
     } catch (error) {
       console.error('Stream error:', error);
+      response.markCompleted();
       throw error;
     } finally {
-      console.log('Setting isExecuting to false');
       this.setExecuting(false);
     }
-  }
 
-  /**
-   * views - 将 events 组织成符合 UI 渲染的数据结构
-   */
-  @computed
-  get views(): Executor.EventView[] {
-    return this.events.map((event) => ({
-      id: event.id,
-      event,
-    }));
-  }
-
-  /** 根据 subType 获取所有事件 */
-  getEventsBySubType<T extends AnyEvent>(subType: BaseEvent.SubType): T[] {
-    return this.events.filter(e => e.subType === subType) as T[];
+    return response;
   }
 }
 
 export namespace Executor {
-  /** 事件视图（用于 UI 渲染） */
-  export interface EventView {
-    id: string;
-    event: AnyEvent;
-  }
-
   // Re-export types from BaseEvent for convenience
   export type RoleName = BaseEvent.RoleName;
   export type SubType = BaseEvent.SubType;

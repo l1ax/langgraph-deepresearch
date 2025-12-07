@@ -24,7 +24,7 @@ const fullAgentBuilder = new StateGraph(StateAnnotation)
     .addNode('write_research_brief', writeResearchBrief, {
         ends: [END],
     })
-    .addNode('supervisor_subgraph', supervisorGraph)
+    .addNode('supervisor_subgraph', supervisorGraph as any)
     .addNode('final_report_generation', finalReportGeneration)
     .addEdge(START, 'clarify_with_user')
     .addEdge('write_research_brief', 'supervisor_subgraph')
@@ -34,4 +34,4 @@ const fullAgentBuilder = new StateGraph(StateAnnotation)
 // 编译完整工作流
 export const fullAgentGraph = fullAgentBuilder.compile();
 
-fullAgentGraph.name = 'fullResearchAgent';
+(fullAgentGraph as any).name = 'fullResearchAgent';

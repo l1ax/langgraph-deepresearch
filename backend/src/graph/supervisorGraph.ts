@@ -44,18 +44,13 @@ function shouldContinue(state: typeof StateAnnotation.State) {
 function routeAfterTools(state: typeof StateAnnotation.State) {
     const notes = state.notes || [];
 
-    console.log('[routeAfterTools] notes.length:', notes.length);
-    console.log('[routeAfterTools] notes:', notes);
-
     // 如果 notes 已经生成，说明任务完成
     // (supervisorTools 在 shouldEnd=true 时会保存 notes)
     if (notes.length > 0) {
-        console.log('[routeAfterTools] Returning END');
         return END;
     }
 
     // 否则返回到监督者节点继续处理
-    console.log('[routeAfterTools] Returning supervisor');
     return 'supervisor';
 }
 

@@ -15,7 +15,7 @@ import { StateAnnotation } from '../../state';
 import { leadResearcherPrompt } from '../../prompts';
 import { getTodayStr, extractContent } from '../../utils';
 import { thinkTool, conductResearchTool, researchCompleteTool } from '../../tools';
-import { ChatEvent } from '../../outputAdapters';
+import { ChatEvent, GroupEvent } from '../../outputAdapters';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -50,6 +50,20 @@ const supervisorModelWithTools = supervisorModel.bindTools(supervisorTools);
  * 协调研究活动并决定下一步行动。
  */
 export async function supervisor(state: typeof StateAnnotation.State, config?: LangGraphRunnableConfig) {
+    // 检查是否已经存在 supervisor_group_id，如果存在则复用，避免重复创建
+    let supervisorGroupId = state.supervisor_group_id;
+    let supervisorEvent: GroupEvent | null = null;
+    
+    if (!supervisorGroupId) {
+        // 第一次调用，创建新的 supervisor group event
+        supervisorEvent = new GroupEvent('supervisor');
+        supervisorGroupId = supervisorEvent.id;
+        if (config?.writer) {
+            config.writer(supervisorEvent.setStatus('running').toJSON());
+        }
+    }
+    // 如果 supervisorGroupId 已存在，则复用，不创建新的事件
+
     const supervisorMessages = state.supervisor_messages || [];
 
     // 使用当前日期和约束准备系统消息
@@ -68,11 +82,22 @@ export async function supervisor(state: typeof StateAnnotation.State, config?: L
     if (textContent && config?.writer) {
         const chatEvent = new ChatEvent('supervisor');
         chatEvent.setMessage(textContent);
+        // 设置 parentId 为 supervisor GroupEvent 的 id
+        chatEvent.setParentId(supervisorGroupId);
         config.writer(chatEvent.setStatus('finished').toJSON());
     }
 
-    return {
+    // 只在第一次创建时更新 supervisor_group_event 和 supervisor_group_id
+    const returnValue: any = {
         supervisor_messages: [response],
         research_iterations: (state.research_iterations || 0) + 1,
     };
+    
+    if (supervisorEvent) {
+        // 第一次创建，更新 state
+        returnValue.supervisor_group_event = supervisorEvent.toJSON();
+        returnValue.supervisor_group_id = supervisorGroupId;
+    }
+
+    return returnValue;
 }

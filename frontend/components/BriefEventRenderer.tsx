@@ -6,8 +6,7 @@ import { FileText, BookOpen, Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BriefEvent } from '@/stores';
 import { EventRendererProps } from '@/services';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { Streamdown } from 'streamdown';
 
 /**
  * BriefEventRenderer 渲染器组件
@@ -108,9 +107,9 @@ export const BriefEventRenderer = observer(
           ) : isError ? (
             <p className="text-red-600 dark:text-red-400">生成研究概要时发生错误，请重试。</p>
           ) : (
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <Streamdown>
               {research_brief || '研究概要内容为空'}
-            </ReactMarkdown>
+            </Streamdown>
           )}
         </div>
       </div>

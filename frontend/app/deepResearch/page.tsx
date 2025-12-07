@@ -8,18 +8,21 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { DeepResearchPageStore, Conversation, AnyEvent, ClarifyEvent, BriefEvent, ChatEvent, ToolCallEvent } from '@/stores';
-import { EventRendererRegistry, EventView } from '@/services';
+import { DeepResearchPageStore, Conversation, ClarifyEvent, BriefEvent, ChatEvent, ToolCallEvent, GroupEvent } from '@/stores';
+import { EventRendererRegistry } from '@/services';
 import { ClarifyEventRenderer } from '@/components/ClarifyEventRenderer';
 import { BriefEventRenderer } from '@/components/BriefEventRenderer';
 import { ChatEventRenderer } from '@/components/ChatEventRenderer';
 import { ToolCallEventRenderer } from '@/components/ToolCallEventRenderer';
+import { GroupEventRenderer } from '@/components/GroupEventRenderer';
+import { TreeViewUI } from '@/components/TreeViewUI';
 
 // 按 subType 注册渲染器
 EventRendererRegistry.register<ClarifyEvent.IData>('clarify', ClarifyEventRenderer);
 EventRendererRegistry.register<BriefEvent.IData>('brief', BriefEventRenderer);
 EventRendererRegistry.register<ChatEvent.IData>('chat', ChatEventRenderer);
 EventRendererRegistry.register<ToolCallEvent.IData>('tool_call', ToolCallEventRenderer);
+EventRendererRegistry.register<GroupEvent.IData>('group', GroupEventRenderer);
 
 /** 用户消息元素渲染组件 */
 const UserElementRenderer = observer<{ element: Conversation.UserElement }>(({ element }) => (
@@ -35,37 +38,10 @@ const UserElementRenderer = observer<{ element: Conversation.UserElement }>(({ e
   </div>
 ));
 
-/** 工具调用组渲染组件 */
-const ToolCallGroupRenderer = observer<{ events: AnyEvent[] }>(({ events }) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  
-  // 自动滚动到底部
-  const statusesKey = events.map(e => e.status).join(',');
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [events.length, statusesKey]);
-
-  return (
-    <div className="rounded-lg border bg-muted/30 p-2">
-      <div 
-        ref={scrollRef}
-        className="max-h-[240px] overflow-y-auto space-y-1 pr-1 custom-scrollbar scroll-smooth"
-      >
-        {events.map((event) => (
-          <EventView key={Conversation.getEventKey(event)} event={event} />
-        ))}
-      </div>
-    </div>
-  );
-});
-
-/** 助手消息元素渲染组件 */
+/** 助手元素渲染组件 - 渲染包含 ExecutionResponse 的 assistant element */
 const AssistantElementRenderer = observer<{ element: Conversation.AssistantElement }>(({ element }) => {
-  // 使用数据层的方法对事件进行分组
-  const groupedEvents = Conversation.groupEvents(element);
-
+  const { executionResponse } = element;
+  
   return (
     <div className="flex w-full gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300 justify-start pr-12">
       <Avatar className="h-8 w-8 border bg-background shadow-sm shrink-0">
@@ -74,29 +50,14 @@ const AssistantElementRenderer = observer<{ element: Conversation.AssistantEleme
         </AvatarFallback>
       </Avatar>
       <div className="flex-1 space-y-3 min-w-0">
-        {groupedEvents.map((group) => {
-          if (group.type === 'tool_group') {
-            return (
-              <ToolCallGroupRenderer 
-                key={Conversation.getToolGroupKey(group.events)} 
-                events={group.events} 
-              />
-            );
-          }
-          return <EventView key={Conversation.getEventKey(group.event)} event={group.event} />;
-        })}
+        {executionResponse.treeView.topLevelEventNodes.length > 0 ? (
+          <TreeViewUI treeView={executionResponse.treeView} />
+        ) : null}
       </div>
     </div>
   );
 });
 
-/** 元素渲染组件 - 根据类型分发到对应渲染器 */
-const ElementRenderer = observer<{ element: Conversation.Element }>(({ element }) => {
-  if (Conversation.isUserElement(element)) {
-    return <UserElementRenderer element={element} />;
-  }
-  return <AssistantElementRenderer element={element} />;
-});
 
 /** Loading 指示器组件 */
 const LoadingIndicator = observer(() => (
@@ -160,10 +121,15 @@ const DeepResearchPage = observer(() => {
       <div className="flex-1 overflow-hidden relative bg-muted/5">
         <ScrollArea className="h-full p-4 md:p-8" ref={scrollAreaRef}>
           <div className="mx-auto max-w-3xl space-y-8 pb-24">
-            {/* 渲染所有元素 */}
-            {store.elements.map((element) => (
-              <ElementRenderer key={element.id} element={element} />
-            ))}
+            {/* 按照 elements 的顺序渲染所有元素 */}
+            {store.elements.map((element) => {
+              if (Conversation.isUserElement(element)) {
+                return <UserElementRenderer key={element.id} element={element} />;
+              } else if (Conversation.isAssistantElement(element)) {
+                return <AssistantElementRenderer key={element.id} element={element} />;
+              }
+              return null;
+            })}
 
             {/* Loading 指示器 */}
             {showLoading && <LoadingIndicator />}

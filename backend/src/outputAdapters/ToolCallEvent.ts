@@ -35,6 +35,7 @@ export class ToolCallEvent extends BaseEvent<ToolCallEvent.IContent> {
             eventType: this.eventType,
             status: this.status,
             content: this.content,
+            ...(this.parentId && { parentId: this.parentId }),
         };
     }
 }

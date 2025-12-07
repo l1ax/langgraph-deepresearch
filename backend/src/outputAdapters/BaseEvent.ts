@@ -7,6 +7,9 @@ export abstract class BaseEvent<T extends BaseEvent.IContent> implements BaseEve
     /** 事件状态 */
     status: BaseEvent.EventStatus;
 
+    /** 父事件 ID（可选，用于构建事件树） */
+    parentId?: string;
+
     constructor(public eventType: BaseEvent.EventType) {
         this.id = uuidv4();
         this.status = 'pending';
@@ -21,6 +24,12 @@ export abstract class BaseEvent<T extends BaseEvent.IContent> implements BaseEve
         this.status = status;
         return this;
     }
+
+    /** 设置父事件 ID */
+    setParentId(parentId: string): this {
+        this.parentId = parentId;
+        return this;
+    }
 }
 
 export namespace BaseEvent {
@@ -33,6 +42,8 @@ export namespace BaseEvent {
         status: EventStatus;
         /** 事件内容 */
         content: T;
+        /** 父事件 ID（可选，用于构建事件树） */
+        parentId?: string;
     }
 
     /** 事件状态 */
@@ -49,7 +60,7 @@ export namespace BaseEvent {
     /** 
      * 基础事件子类型
      */
-    export type BaseEventSubType = 'clarify' | 'brief' | 'chat' | 'tool_call';
+    export type BaseEventSubType = 'clarify' | 'brief' | 'chat' | 'tool_call' | 'group';
 
     /** 
      * 事件类型，格式为 /{roleName}/{type}
@@ -61,6 +72,8 @@ export namespace BaseEvent {
      * - /supervisor/tool_call: 研究主管工具调用事件
      * - /researcher/chat: 研究员对话事件
      * - /researcher/tool_call: 研究员工具调用事件
+     * - /supervisor/group: 研究主管聚合事件，用于聚合接下来的supervisor events
+     * - /researcher/group: 研究员聚合事件，用于聚合接下来的researcher events
      */
     export type EventType = `/${RoleName}/${BaseEventSubType}`;
 

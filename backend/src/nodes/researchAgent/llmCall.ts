@@ -51,6 +51,11 @@ export async function researchLlmCall(
     if (textContent && config.writer) {
         const chatEvent = new ChatEvent('researcher');
         chatEvent.setMessage(textContent);
+        // 设置 parentId 为 researcher GroupEvent 的 id
+        const researcherGroupId = state.researcher_group_id;
+        if (researcherGroupId) {
+            chatEvent.setParentId(researcherGroupId);
+        }
         config.writer(chatEvent.setStatus('finished').toJSON());
     }
 

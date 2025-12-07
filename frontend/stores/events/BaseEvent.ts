@@ -12,6 +12,9 @@ export abstract class BaseEvent<T extends BaseEvent.IContent = BaseEvent.IConten
   /** 事件状态 */
   status: BaseEvent.EventStatus;
 
+  /** 父事件 ID（可选，用于构建事件树） */
+  parentId?: string;
+
   /** 事件内容 */
   abstract content: T;
 
@@ -19,6 +22,7 @@ export abstract class BaseEvent<T extends BaseEvent.IContent = BaseEvent.IConten
     this.id = data.id;
     this.eventType = data.eventType;
     this.status = data.status;
+    this.parentId = data.parentId;
   }
 
   /** 获取解析后的事件类型信息 */
@@ -47,7 +51,7 @@ export namespace BaseEvent {
   export type RoleName = 'ai' | 'supervisor' | 'researcher';
 
   /** 基础事件子类型 */
-  export type SubType = 'clarify' | 'brief' | 'chat' | 'tool_call';
+  export type SubType = 'clarify' | 'brief' | 'chat' | 'tool_call' | 'group';
 
   /** 事件类型，格式为 /{roleName}/{subType} */
   export type EventType = `/${RoleName}/${SubType}`;
@@ -94,6 +98,8 @@ export namespace BaseEvent {
       contentType: 'text';
       data: T;
     };
+    /** 父事件 ID（可选，用于构建事件树） */
+    parentId?: string;
   }
 }
 

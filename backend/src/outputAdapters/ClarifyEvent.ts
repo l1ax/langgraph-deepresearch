@@ -20,6 +20,7 @@ export class ClarifyEvent extends BaseEvent<ClarifyEvent.IContent> {
             eventType: this.eventType,
             status: this.status,
             content: this.content,
+            ...(this.parentId && { parentId: this.parentId }),
         };
     }
 }

@@ -1,5 +1,6 @@
 import { observable, action, computed, makeObservable } from 'mobx';
 import { AnyEvent } from './events';
+import { ExecutionResponse } from './ExecutionResponse';
 
 /**
  * Conversation 类
@@ -12,15 +13,12 @@ export class Conversation {
   /** 会话中的元素列表（用户消息和助手回答） */
   @observable elements: Conversation.Element[] = [];
 
-  /** 当前正在接收 events 的助手元素 */
-  @observable private currentAssistantElement: Conversation.AssistantElement | null = null;
-
   constructor(threadId: string) {
     this.threadId = threadId;
     makeObservable(this);
   }
 
-  /** 添加用户消息元素，并创建新的助手元素准备接收回复 */
+  /** 添加用户消息元素 */
   @action.bound
   addUserMessage(content: string): Conversation.UserElement {
     const element: Conversation.UserElement = {
@@ -30,62 +28,37 @@ export class Conversation {
       timestamp: new Date(),
     };
     this.elements.push(element);
-
-    // 创建新的助手元素准备接收回复
-    this.currentAssistantElement = {
-      id: `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      role: 'assistant',
-      events: [],
-      timestamp: new Date(),
-    };
-    this.elements.push(this.currentAssistantElement);
-
     return element;
   }
 
   /** 添加独立的助手事件元素（用于欢迎消息等不需要用户提问的场景） */
   @action.bound
   addStandaloneAssistantEvent(event: AnyEvent): Conversation.AssistantElement {
+    // 创建一个包含单个事件的 ExecutionResponse
+    const executionResponse = new ExecutionResponse();
+    executionResponse.upsertEvent(event);
+    executionResponse.markCompleted();
+    
+    return this.addExecutionResponse(executionResponse);
+  }
+
+  /** 将 ExecutionResponse 包装成 AssistantElement 并添加到 elements */
+  @action.bound
+  addExecutionResponse(executionResponse: ExecutionResponse): Conversation.AssistantElement {
     const element: Conversation.AssistantElement = {
       id: `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       role: 'assistant',
-      events: [event],
+      executionResponse,
       timestamp: new Date(),
     };
     this.elements.push(element);
     return element;
   }
 
-  /** 将 event 添加或更新到当前助手元素 */
-  @action.bound
-  addEventToCurrentAssistant(event: AnyEvent): void {
-    if (!this.currentAssistantElement) return;
-
-    const index = this.currentAssistantElement.events.findIndex(e => e.id === event.id);
-    if (index !== -1) {
-      // 替换整个 event 对象，确保 MobX 能检测到变化
-      this.currentAssistantElement.events[index] = event;
-    } else {
-      // 添加新 event
-      this.currentAssistantElement.events.push(event);
-    }
-  }
-
-  /** 完成当前助手元素的接收 */
-  @action.bound
-  finishCurrentAssistant(): void {
-    this.currentAssistantElement = null;
-  }
-
-  /** 获取所有元素（用于 UI 渲染），过滤掉空的助手元素 */
+  /** 获取所有元素（用于 UI 渲染） */
   @computed
   get allElements(): Conversation.Element[] {
-    return this.elements.filter(el => {
-      if (Conversation.isAssistantElement(el)) {
-        return el.events.length > 0;
-      }
-      return true;
-    });
+    return this.elements;
   }
 
   /** 获取元素数量 */
@@ -114,8 +87,8 @@ export namespace Conversation {
     id: string;
     /** 角色 */
     role: 'assistant';
-    /** 助手回答事件列表（一次问答可能产生多个事件） */
-    events: AnyEvent[];
+    /** ExecutionResponse（包含本次执行的所有事件和 treeView） */
+    executionResponse: ExecutionResponse;
     /** 时间戳 */
     timestamp: Date;
   }
@@ -151,7 +124,7 @@ export namespace Conversation {
     const groups: GroupedEventItem[] = [];
     let currentToolGroup: AnyEvent[] = [];
 
-    element.events.forEach((event) => {
+    element.executionResponse.events.forEach((event: AnyEvent) => {
       if (event.subType === 'tool_call') {
         currentToolGroup.push(event);
       } else {

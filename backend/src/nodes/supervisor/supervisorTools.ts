@@ -15,7 +15,7 @@ import { StateAnnotation } from '../../state';
 import { researchAgentGraph } from '../../graph/researchAgentGraph';
 import { HumanMessage } from '@langchain/core/messages';
 import { thinkTool } from '../../tools';
-import { ToolCallEvent } from '../../outputAdapters';
+import { GroupEvent, ToolCallEvent } from '../../outputAdapters';
 
 // 系统常量 - 应与 supervisor.ts 中的值匹配
 const maxResearcherIterations = 6;
@@ -83,6 +83,9 @@ export async function supervisorTools(
             ? mostRecentMessage.tool_calls
             : [];
 
+        // 获取 supervisor_group_id
+        const supervisorGroupId = state.supervisor_group_id;
+
         // 为每个工具调用创建并发送 running 状态的 ToolCallEvent
         for (const toolCall of toolCalls) {
             const event = new ToolCallEvent('supervisor');
@@ -92,6 +95,11 @@ export async function supervisorTools(
                 toolCall.args,
                 toolCallId
             );
+
+            // 设置 parentId 为 supervisor GroupEvent 的 id
+            if (supervisorGroupId) {
+                event.setParentId(supervisorGroupId);
+            }
 
             // 发送 running 状态
             if (config?.writer) {
@@ -157,16 +165,41 @@ export async function supervisorTools(
         // 如果已经超过迭代次数，不再启动新的研究
         if (conductResearchCalls.length > 0 && !shouldEnd) {
             // 启动并行研究代理
-            const researchPromises = conductResearchCalls.map((toolCall: any) =>
-                researchAgentGraph.invoke({
+            const researchPromises = conductResearchCalls.map((toolCall: any) => {
+                const groupEvent = new GroupEvent('researcher');
+                
+                // 设置 parentId 为 supervisor GroupEvent 的 id，使 researcher group event 被聚合到 supervisor group event 里
+                if (supervisorGroupId) {
+                    groupEvent.setParentId(supervisorGroupId);
+                }
+                
+                // 初始化researcher event，开始聚合后续researcher产出的events
+                if (config?.writer) {
+                    config.writer(groupEvent.setStatus('running').toJSON());
+                }
+
+                return (researchAgentGraph as any).invoke({
                     researcher_messages: [
                         new HumanMessage({
                             content: toolCall.args.research_topic,
                         }),
                     ],
                     research_topic: toolCall.args.research_topic,
-                }, config)
-            );
+                    researcher_group_id: groupEvent.id,
+                }, config).then((result: any) => {
+                    if (config?.writer) {
+                        config.writer(groupEvent.setStatus('finished').toJSON());
+                    }
+
+                    return result;
+                }).catch((error: any) => {
+                    if (config?.writer) {
+                        config.writer(groupEvent.setStatus('error').toJSON());
+                    }
+
+                    throw error;
+                });
+            });
 
             // 等待所有研究完成
             const toolResults = await Promise.all(researchPromises);
