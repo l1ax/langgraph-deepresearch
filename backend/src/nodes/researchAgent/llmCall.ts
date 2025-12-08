@@ -16,6 +16,7 @@ import { tavilySearchTool, thinkTool } from '../../tools';
 import { ChatEvent } from '../../outputAdapters';
 import dotenv from 'dotenv';
 import { LangGraphRunnableConfig } from '@langchain/langgraph';
+import {traceable} from 'langsmith/traceable';
 dotenv.config();
 
 const model = new ChatDeepSeek({
@@ -31,10 +32,10 @@ const tools = [tavilySearchTool, thinkTool];
 
 const modelWithTools = model.bindTools(tools);
 
-export async function researchLlmCall(
+export const researchLlmCall = traceable(async (
     state: typeof ResearcherStateAnnotation.State,
     config: LangGraphRunnableConfig
-) {
+) => {
     // 使用当前日期格式化提示词
     const systemPrompt = researchAgentPrompt.replace('{date}', getTodayStr());
 
@@ -62,4 +63,4 @@ export async function researchLlmCall(
     return {
         researcher_messages: [response],
     };
-}
+});

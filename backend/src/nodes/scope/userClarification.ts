@@ -9,6 +9,7 @@ import { clarifyWithUserInstructions } from '../../prompts';
 import { getTodayStr } from '../../utils';
 import { StateAnnotation } from '../../state';
 import {ClarifyEvent} from '../../outputAdapters';
+import {traceable} from 'langsmith/traceable';
 
 export interface ClarifyWithUser {
   need_clarification: boolean;
@@ -16,10 +17,10 @@ export interface ClarifyWithUser {
   verification: string;
 }
 
-export async function clarifyWithUser(
+export const clarifyWithUser = traceable(async (
   state: typeof StateAnnotation.State,
   config: LangGraphRunnableConfig
-): Promise<Command> {
+): Promise<Command> => {
   const event = new ClarifyEvent();
 
   // 发送 pending 状态
@@ -79,4 +80,4 @@ export async function clarifyWithUser(
     }
     throw error;
   }
-}
+});

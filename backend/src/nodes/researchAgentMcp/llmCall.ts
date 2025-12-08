@@ -13,6 +13,7 @@ import { getTodayStr } from '../../utils';
 import { getMcpClient } from '../../tools/mcpClient';
 import { thinkTool } from '../../tools';
 import dotenv from 'dotenv';
+import {traceable} from 'langsmith/traceable';
 dotenv.config();
 
 const model = new ChatDeepSeek({
@@ -34,9 +35,9 @@ const model = new ChatDeepSeek({
  *
  * 返回包含模型响应的更新状态。
  */
-export async function researchMcpLlmCall(
+export const researchMcpLlmCall = traceable(async (
     state: typeof ResearcherStateAnnotation.State
-) {
+) => {
     // 从 MCP 服务器获取可用工具
     const client = getMcpClient();
     const mcpTools = await client.getTools();
@@ -62,4 +63,4 @@ export async function researchMcpLlmCall(
     return {
         researcher_messages: [response],
     };
-}
+});

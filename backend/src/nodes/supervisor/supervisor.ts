@@ -17,6 +17,7 @@ import { getTodayStr, extractContent } from '../../utils';
 import { thinkTool, conductResearchTool, researchCompleteTool } from '../../tools';
 import { ChatEvent, GroupEvent } from '../../outputAdapters';
 import dotenv from 'dotenv';
+import {traceable} from 'langsmith/traceable';
 dotenv.config();
 
 // 配置监督器模型
@@ -49,7 +50,7 @@ const supervisorModelWithTools = supervisorModel.bindTools(supervisorTools);
  *
  * 协调研究活动并决定下一步行动。
  */
-export async function supervisor(state: typeof StateAnnotation.State, config?: LangGraphRunnableConfig) {
+export const supervisor = traceable(async (state: typeof StateAnnotation.State, config?: LangGraphRunnableConfig) => {
     // 检查是否已经存在 supervisor_group_id，如果存在则复用，避免重复创建
     let supervisorGroupId = state.supervisor_group_id;
     let supervisorEvent: GroupEvent | null = null;
@@ -100,4 +101,4 @@ export async function supervisor(state: typeof StateAnnotation.State, config?: L
     }
 
     return returnValue;
-}
+});

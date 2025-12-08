@@ -16,6 +16,7 @@ import { researchAgentGraph } from '../../graph/researchAgentGraph';
 import { HumanMessage } from '@langchain/core/messages';
 import { thinkTool } from '../../tools';
 import { GroupEvent, ToolCallEvent } from '../../outputAdapters';
+import {traceable} from 'langsmith/traceable';
 
 // 系统常量 - 应与 supervisor.ts 中的值匹配
 const maxResearcherIterations = 6;
@@ -38,10 +39,10 @@ function getNotesFromToolCalls(supervisorMessages: any[]): string[] {
  *
  * 执行监督器决策并管理研究代理的生命周期。
  */
-export async function supervisorTools(
+export const supervisorTools = traceable(async (
     state: typeof StateAnnotation.State,
     config?: LangGraphRunnableConfig
-) {
+) => {
     const supervisorMessages = state.supervisor_messages || [];
     const researchIterations = state.research_iterations || 0;
     const mostRecentMessage = supervisorMessages[supervisorMessages.length - 1];
@@ -287,4 +288,4 @@ export async function supervisorTools(
             raw_notes: allRawNotes,
         };
     }
-}
+});

@@ -9,6 +9,7 @@ import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { ResearcherStateAnnotation } from '../../state';
 import { getMcpClient } from '../../tools/mcpClient';
 import { thinkTool } from '../../tools';
+import {traceable} from 'langsmith/traceable';
 
 /**
  * 执行工具调用的工具节点 (MCP 版本)。
@@ -20,9 +21,9 @@ import { thinkTool } from '../../tools';
  *
  * 注意：MCP 需要异步操作，因为它与 MCP 服务器子进程进行进程间通信。
  */
-export async function researchMcpToolNode(
+export const researchMcpToolNode = traceable(async (
     state: typeof ResearcherStateAnnotation.State
-) {
+) => {
     // 从 MCP 服务器获取新的工具引用
     const client = getMcpClient();
     const mcpTools = await client.getTools();
@@ -40,4 +41,4 @@ export async function researchMcpToolNode(
     return {
         researcher_messages: result.messages,
     };
-}
+});

@@ -4,6 +4,7 @@ import { isAIMessage, ToolMessage } from '@langchain/core/messages';
 import { tavilySearchTool, thinkTool } from '../../tools';
 import { ResearcherStateAnnotation } from '../../state';
 import { ToolCallEvent } from '../../outputAdapters';
+import {traceable} from 'langsmith/traceable';
 
 const tools = [tavilySearchTool, thinkTool];
 
@@ -17,10 +18,10 @@ const toolNode = new ToolNode(tools as any);
  * 包装 ToolNode 以处理状态转换。
  * ToolNode 期望 { messages: BaseMessage[] }，但我们的状态有 researcher_messages。
  */
-export async function researchToolNode(
+export const researchToolNode = traceable(async (
     state: typeof ResearcherStateAnnotation.State,
     config: LangGraphRunnableConfig
-) {
+) => {
     const messages = state.researcher_messages;
     const lastMessage = messages[messages.length - 1];
 
@@ -95,4 +96,4 @@ export async function researchToolNode(
         }
         throw error;
     }
-}
+});

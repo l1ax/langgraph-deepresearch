@@ -13,6 +13,7 @@ import dotenv from 'dotenv';
 import {ChatDeepSeek} from '@langchain/deepseek';
 import {LangGraphRunnableConfig} from '@langchain/langgraph';
 import {ChatEvent} from '../../outputAdapters';
+import {traceable} from 'langsmith/traceable';
 dotenv.config();
 
 // 配置写作模型
@@ -39,10 +40,10 @@ const writerModel = new ChatDeepSeek({
  *
  * 将所有研究结果合成为综合性最终报告
  */
-export async function finalReportGeneration(
+export const finalReportGeneration = traceable(async (
     state: typeof StateAnnotation.State,
     config: LangGraphRunnableConfig
-) {
+) => {
     // 更新 supervisorGroupEvent 的 status 为 finished 并写入
     const supervisorGroupEvent = state.supervisor_group_event;
     if (supervisorGroupEvent && config.writer) {
@@ -81,7 +82,7 @@ export async function finalReportGeneration(
 
     for await (const chunk of response) {
         finalReport += chunk.content as string;
-        if (config.writer) {
+        if (config.writer && finalReport.length > 0) {
             config.writer(chatEvent.setMessage(finalReport).setStatus('running').toJSON());
         }
     }
@@ -94,4 +95,4 @@ export async function finalReportGeneration(
         final_report: finalReport,
         messages: [new HumanMessage({ content: 'Here is the final report: ' + finalReport })],
     };
-}
+});

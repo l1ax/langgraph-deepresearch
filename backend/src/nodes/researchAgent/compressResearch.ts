@@ -11,6 +11,7 @@ import { ResearcherStateAnnotation } from '../../state';
 import { compressResearchSystemPrompt, compressResearchHumanMessage } from '../../prompts';
 import { getTodayStr } from '../../utils';
 import dotenv from 'dotenv';
+import {traceable} from 'langsmith/traceable';
 dotenv.config();
 
 const compressModel = new ChatDeepSeek({
@@ -22,9 +23,9 @@ const compressModel = new ChatDeepSeek({
     },
 });
 
-export async function compressResearch(
+export const compressResearch = traceable(async (
     state: typeof ResearcherStateAnnotation.State
-) {
+) => {
     // 使用当前日期格式化系统提示词
     const systemPrompt = compressResearchSystemPrompt.replace(
         '{date}',
@@ -53,4 +54,4 @@ export async function compressResearch(
         compressed_research: String(response.content),
         raw_notes: [rawNotes.join('\n')],
     };
-}
+});
