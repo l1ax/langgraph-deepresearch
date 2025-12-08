@@ -1,8 +1,8 @@
 import { observable, action, makeObservable } from 'mobx';
 import { Client } from '@langchain/langgraph-sdk';
-import { 
-  BaseEvent, 
-  AnyEvent, 
+import {
+  BaseEvent,
+  AnyEvent,
   createEventFromData,
   ClarifyEvent,
   BriefEvent,
@@ -13,7 +13,6 @@ import { ExecutionResponse } from './ExecutionResponse';
 
 // Configuration
 const GRAPH_ID = 'fullResearchAgent';
-const API_URL = 'http://localhost:2024';
 
 /** 流式数据 chunk 结构 */
 interface StreamChunk {
@@ -22,35 +21,27 @@ interface StreamChunk {
   data: unknown;
 }
 
+// 前向声明
+interface IConversation {
+  readonly threadId: string;
+  readonly client: Client | null;
+}
+
 /**
  * Executor 类
  * 负责与后端通信、存储和处理事件
+ * 通过 conversation 引用访问 client 和 threadId
  */
 export class Executor {
-  /** LangGraph SDK 客户端实例 */
-  @observable client: Client | null = null;
-
-  /** 当前会话线程 ID */
-  @observable threadId: string | null = null;
+  /** Conversation 引用 */
+  private readonly conversation: IConversation;
 
   /** 是否正在执行请求 */
   @observable isExecuting: boolean = false;
 
-  constructor() {
+  constructor(conversation: IConversation) {
+    this.conversation = conversation;
     makeObservable(this);
-  }
-
-  /** 初始化客户端和会话线程 */
-  @action.bound
-  async init(): Promise<void> {
-    try {
-      this.client = new Client({ apiUrl: API_URL });
-      const thread = await this.client.threads.create();
-      this.threadId = thread.thread_id;
-    } catch (error) {
-      console.error('Failed to initialize executor:', error);
-      throw error;
-    }
   }
 
   /** 根据 id 更新已存在的事件，如果不存在则添加 */
@@ -99,8 +90,10 @@ export class Executor {
    */
   @action.bound
   async invoke(content: string, executionResponse?: ExecutionResponse): Promise<ExecutionResponse> {
-    if (!this.client || !this.threadId) {
-      throw new Error('Executor not initialized');
+    const { client, threadId } = this.conversation;
+
+    if (!client || !threadId) {
+      throw new Error('Conversation client or threadId not initialized');
     }
 
     this.setExecuting(true);
@@ -109,13 +102,16 @@ export class Executor {
     const response = executionResponse || new ExecutionResponse();
 
     try {
-      const stream = this.client.runs.stream(this.threadId, GRAPH_ID, {
+      const stream = client.runs.stream(threadId, GRAPH_ID, {
         input: {
           messages: [{ role: 'user', content }],
         },
         streamMode: 'custom',
         config: {
           recursion_limit: 100,
+          configurable: {
+            thread_id: threadId
+          }
         },
       });
 

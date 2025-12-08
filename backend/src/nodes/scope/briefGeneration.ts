@@ -81,11 +81,15 @@ export const writeResearchBrief = traceable(async (
       config.writer(briefEvent.setStatus('finished').toJSON());
     }
 
+    // 存储 brief event 到 state.events
+    const eventsToAdd = [briefEvent.toJSON()];
+
     return {
       research_brief: researchQuestion.research_brief,
       supervisor_messages: [
         new HumanMessage({ content: `${researchQuestion.research_brief}.` })
       ],
+      events: eventsToAdd,
     };
   } catch (error) {
     // 发送 error 状态

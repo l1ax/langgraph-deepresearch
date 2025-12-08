@@ -79,6 +79,7 @@ export const supervisor = traceable(async (state: typeof StateAnnotation.State, 
     const response = await supervisorModelWithTools.invoke(messages, config);
 
     // 如果 LLM 返回了文本内容（不是工具调用），发送 ChatEvent
+    const eventsToAdd: Record<string, unknown>[] = [];
     const textContent = extractContent(response.content);
     if (textContent && config?.writer) {
         const chatEvent = new ChatEvent('supervisor');
@@ -86,6 +87,7 @@ export const supervisor = traceable(async (state: typeof StateAnnotation.State, 
         // 设置 parentId 为 supervisor GroupEvent 的 id
         chatEvent.setParentId(supervisorGroupId);
         config.writer(chatEvent.setStatus('finished').toJSON());
+        eventsToAdd.push(chatEvent.toJSON());
     }
 
     // 只在第一次创建时更新 supervisor_group_event 和 supervisor_group_id
@@ -93,11 +95,17 @@ export const supervisor = traceable(async (state: typeof StateAnnotation.State, 
         supervisor_messages: [response],
         research_iterations: (state.research_iterations || 0) + 1,
     };
-    
+
     if (supervisorEvent) {
         // 第一次创建，更新 state
         returnValue.supervisor_group_event = supervisorEvent.toJSON();
         returnValue.supervisor_group_id = supervisorGroupId;
+        eventsToAdd.push(supervisorEvent.toJSON());
+    }
+
+    // Store events to state.events
+    if (eventsToAdd.length > 0) {
+        returnValue.events = eventsToAdd;
     }
 
     return returnValue;

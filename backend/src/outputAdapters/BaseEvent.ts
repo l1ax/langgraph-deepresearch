@@ -66,8 +66,9 @@ export namespace BaseEvent {
      * - ai: 最普通的回复角色，用于 clarifyNode 和 briefGenerationNode
      * - supervisor: 研究主管，用于 supervisor 节点
      * - researcher: 研究员角色，用于 researchAgentGraph 中的 llm 节点
+     * - human: 用户
      */
-    export type RoleName = 'ai' | 'supervisor' | 'researcher';
+    export type RoleName = 'ai' | 'supervisor' | 'researcher' | 'human';
 
     /** 
      * 基础事件子类型

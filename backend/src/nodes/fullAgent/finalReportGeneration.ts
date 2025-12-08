@@ -91,8 +91,12 @@ export const finalReportGeneration = traceable(async (
         config.writer(chatEvent.setStatus('finished').toJSON());
     }
 
+    // Store chat event to state.events
+    const eventsToAdd = [chatEvent.toJSON()];
+
     return {
         final_report: finalReport,
         messages: [new HumanMessage({ content: 'Here is the final report: ' + finalReport })],
+        events: eventsToAdd,
     };
 });

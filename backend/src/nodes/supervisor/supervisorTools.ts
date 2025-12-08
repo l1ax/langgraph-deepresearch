@@ -51,6 +51,7 @@ export const supervisorTools = traceable(async (
     const toolMessages: ToolMessage[] = [];
     let allRawNotes: string[] = [];
     let shouldEnd = false;
+    const eventsToAdd: Record<string, unknown>[] = [];
 
     // 首先检查退出标准
     const exceededIterations = researchIterations >= maxResearcherIterations;
@@ -113,6 +114,7 @@ export const supervisorTools = traceable(async (
             }
 
             toolCallEventsMap.set(toolCallId, event);
+            eventsToAdd.push(event.toJSON());
         }
 
         // 将 think_tool 调用与其他调用分开
@@ -173,16 +175,19 @@ export const supervisorTools = traceable(async (
             // 启动并行研究代理
             const researchPromises = conductResearchCalls.map((toolCall: any) => {
                 const groupEvent = new GroupEvent('researcher');
-                
+
                 // 设置 parentId 为 supervisor GroupEvent 的 id，使 researcher group event 被聚合到 supervisor group event 里
                 if (supervisorGroupId) {
                     groupEvent.setParentId(supervisorGroupId);
                 }
-                
+
                 // 初始化researcher event，开始聚合后续researcher产出的events
                 if (config?.writer) {
                     config.writer(groupEvent.setStatus('running').toJSON());
                 }
+
+                // Store group event to eventsToAdd
+                eventsToAdd.push(groupEvent.toJSON());
 
                 return (researchAgentGraph as any).invoke({
                     researcher_messages: [
@@ -284,13 +289,25 @@ export const supervisorTools = traceable(async (
             result.supervisor_messages = toolMessages;
         }
 
+        // Store events to state.events
+        if (eventsToAdd.length > 0) {
+            result.events = eventsToAdd;
+        }
+
         return result;
     } else {
         // CRITICAL: 确保所有 tool_calls 都有对应的 ToolMessage
         // 如果 mostRecentMessage 有 tool_calls，我们必须为每个 tool_call 返回 ToolMessage
-        return {
+        const result: any = {
             supervisor_messages: toolMessages,
             raw_notes: allRawNotes,
         };
+
+        // Store events to state.events
+        if (eventsToAdd.length > 0) {
+            result.events = eventsToAdd;
+        }
+
+        return result;
     }
 });

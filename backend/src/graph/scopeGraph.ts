@@ -1,10 +1,11 @@
-import { END, START, StateGraph } from '@langchain/langgraph';
+import { END, MemorySaver, START, StateGraph } from '@langchain/langgraph';
 import { StateAnnotation } from '../state';
 import {clarifyWithUser, writeResearchBrief} from '../nodes';
 import dotenv from 'dotenv';
 dotenv.config();
 
 const graphBuilder = new StateGraph(StateAnnotation);
+const checkpointer = new MemorySaver();
 
 export const scopeAgentGraph = graphBuilder
     .addNode("clarify_with_user", clarifyWithUser, {
@@ -15,6 +16,6 @@ export const scopeAgentGraph = graphBuilder
     })
     .addEdge(START, "clarify_with_user")
     .addEdge("write_research_brief", END)
-    .compile();
+    .compile({ checkpointer });
 
 (scopeAgentGraph as any).name = 'scopeAgent'

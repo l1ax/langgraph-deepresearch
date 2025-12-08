@@ -1,25 +1,31 @@
 import { observable, action, flow, computed, makeObservable } from 'mobx';
-import { Executor } from './Executor';
+import { Client } from '@langchain/langgraph-sdk';
 import { Conversation } from './Conversation';
 import { ChatEvent } from './events';
 import { ExecutionResponse } from './ExecutionResponse';
 
+// Configuration
+const API_URL = 'http://localhost:2024';
+
 /**
  * DeepResearchPageStore
- * 页面级 Store，管理 executor 和 conversations
+ * 页面级 Store，管理 client 和 conversations
  */
 export class DeepResearchPageStore {
   /** 输入框当前值 */
   @observable inputValue: string = '';
 
-  /** Executor 实例 */
-  @observable executor: Executor = new Executor();
+  /** LangGraph SDK 客户端实例 */
+  @observable client: Client | null = null;
 
   /** 会话列表 */
   @observable conversations: Conversation[] = [];
 
   /** 当前活跃的会话 */
   @observable currentConversation: Conversation | null = null;
+
+  /** 侧边栏是否展开 */
+  @observable isSidebarOpen: boolean = true;
 
   constructor() {
     makeObservable(this);
@@ -37,31 +43,73 @@ export class DeepResearchPageStore {
     this.inputValue = '';
   }
 
+  /** 切换侧边栏展开/收起 */
+  @action.bound
+  toggleSidebar() {
+    this.isSidebarOpen = !this.isSidebarOpen;
+  }
+
   /** 创建新会话 */
   @action.bound
-  private createConversation(threadId: string): Conversation {
-    const conversation = new Conversation(threadId);
+  private createConversation(threadId: string, options?: { autoSelect?: boolean }): Conversation {
+    const autoSelect = options?.autoSelect ?? true;
+    const conversation = new Conversation(threadId, this.client);
     this.conversations.push(conversation);
-    this.currentConversation = conversation;
+    if (autoSelect) {
+      this.currentConversation = conversation;
+    }
+    this.saveConversationThreadIds();
     return conversation;
+  }
+
+  /** 切换到指定的会话 */
+  @action.bound
+  switchToConversation(threadId: string) {
+    const conversation = this.conversations.find(c => c.threadId === threadId);
+    if (conversation) {
+      this.currentConversation = conversation;
+    }
+  }
+
+  /** 保存所有会话的 threadIds 到 localStorage */
+  @action.bound
+  private saveConversationThreadIds() {
+    const threadIds = this.conversations.map(c => c.threadId);
+    localStorage.setItem('conversationThreadIds', JSON.stringify(threadIds));
+  }
+
+  /** 从 localStorage 加载所有会话的 threadIds */
+  private loadConversationThreadIds(): string[] {
+    const saved = localStorage.getItem('conversationThreadIds');
+    return saved ? JSON.parse(saved) : [];
+  }
+
+  /** 创建新对话入口：重置当前会话，回到欢迎页 */
+  @action.bound
+  createNewConversation() {
+    this.currentConversation = null;
+    this.clearInput();
   }
 
   /** 初始化客户端和会话线程 */
   @flow.bound
-  *initClient() {
+  *initClient(): Generator<Promise<any>, void, any> {
     try {
-      yield this.executor.init();
+      // 初始化 client
+      this.client = new Client({ apiUrl: API_URL });
 
-      // 创建新会话
-      if (this.executor.threadId) {
-        const conversation = this.createConversation(this.executor.threadId);
-        // 添加欢迎消息（只添加到 elements 中，不添加到 treeView）
-        const welcomeEvent = ChatEvent.create(
-          'welcome',
-          '你好！我是 DeepResearch 助手。请告诉我你想研究什么主题？'
-        );
-        conversation.addStandaloneAssistantEvent(welcomeEvent);
+      // 加载所有保存的会话 threadIds
+      const savedThreadIds = this.loadConversationThreadIds();
+
+      if (savedThreadIds.length > 0) {
+        // 恢复所有会话
+        for (const threadId of savedThreadIds) {
+          const conversation = this.createConversation(threadId, { autoSelect: false });
+          conversation.restoreDataByThreadId(threadId);
+        }
+        this.currentConversation = null;
       }
+
     } catch (error) {
       console.error('Failed to initialize client:', error);
     }
@@ -86,26 +134,41 @@ export class DeepResearchPageStore {
   /** 提交用户消息并处理流式响应 */
   @flow.bound
   *handleSubmit() {
-    if (!this.inputValue.trim() || !this.executor.client || !this.executor.threadId) return;
-    if (!this.currentConversation) return;
+    if (!this.inputValue.trim() || !this.client) return;
+
+    let conversation = this.currentConversation;
+
+    if (!conversation) {
+      try {
+        const thread = yield this.client.threads.create();
+        const threadId = thread.thread_id;
+        conversation = this.createConversation(threadId);
+      } catch (error) {
+        console.error('Failed to create conversation thread:', error);
+        this.addErrorMessage('无法创建新的对话，请稍后重试或确认服务配置。');
+        return;
+      }
+    }
+
+    if (!conversation) return;
 
     const userMessageContent = this.inputValue;
 
     // 添加用户消息到当前会话
-    this.currentConversation.addUserMessage(userMessageContent);
+    conversation.addUserMessage(userMessageContent);
     this.clearInput();
 
     // 先创建 ExecutionResponse 并添加到 conversation，这样在流式接收过程中 UI 就能实时渲染
     const executionResponse = new ExecutionResponse();
-    this.currentConversation.addExecutionResponse(executionResponse);
+    conversation.addExecutionResponse(executionResponse);
 
     try {
-      // 调用 executor，传入 executionResponse，让它在流式接收过程中更新
-      yield this.executor.invoke(userMessageContent, executionResponse);
+      // 调用 conversation 的 executor，传入 executionResponse，让它在流式接收过程中更新
+      yield conversation.executor.invoke(userMessageContent, executionResponse);
     } catch (error) {
       console.error('Error sending message:', error);
       // 如果出错，移除刚才添加的 executionResponse，改用错误消息
-      const elements = this.currentConversation.elements;
+      const elements = conversation.elements;
       const lastElement = elements[elements.length - 1];
       if (Conversation.isAssistantElement(lastElement) && lastElement.executionResponse === executionResponse) {
         elements.pop();
@@ -119,7 +182,7 @@ export class DeepResearchPageStore {
   /** 是否正在加载/处理请求 */
   @computed
   get isLoading(): boolean {
-    return this.executor.isExecuting;
+    return this.currentConversation?.executor.isExecuting ?? false;
   }
 
   /** 是否可以提交（非加载中且输入不为空） */
@@ -167,6 +230,8 @@ export namespace DeepResearchPageStore {
     research_iterations: number;
     /** 最终报告 */
     final_report: string | null;
+    /** 事件列表（用于恢复历史对话） */
+    events: Record<string, unknown>[];
   }
 
   /** 从 LangChain 消息中提取文本内容 */

@@ -56,6 +56,15 @@ export const StateAnnotation = Annotation.Root({
             return right;
         },
     }),
+    events: Annotation<Record<string, unknown>[]>({
+        reducer: (left: Record<string, unknown>[], right: Record<string, unknown> | Record<string, unknown>[]) => {
+            if (Array.isArray(right)) {
+                return left.concat(right);
+            }
+            return left.concat([right]);
+        },
+        default: () => [],
+    }),
 });
 
 /**

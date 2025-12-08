@@ -1,20 +1,34 @@
-import { observable, action, computed, makeObservable } from 'mobx';
-import { AnyEvent } from './events';
+import { observable, action, computed, makeObservable, flow } from 'mobx';
+import { Client, ThreadState } from '@langchain/langgraph-sdk';
+import { AnyEvent, createEventFromData, BaseEvent, isChatEvent, ChatEvent } from './events';
 import { ExecutionResponse } from './ExecutionResponse';
+import { Executor } from './Executor';
 
 /**
  * Conversation 类
  * 以 threadId 为唯一标识，管理一次对话中的所有 elements
+ * 维护 client 和 executor 实例
  */
 export class Conversation {
   /** 会话唯一标识（对应 LangGraph threadId） */
   readonly threadId: string;
 
+  /** LangGraph SDK 客户端实例 */
+  @observable client: Client | null;
+
+  /** Executor 实例 */
+  readonly executor: Executor;
+
+  @observable isLoading: boolean = false;
+
   /** 会话中的元素列表（用户消息和助手回答） */
   @observable elements: Conversation.Element[] = [];
 
-  constructor(threadId: string) {
+  constructor(threadId: string, client: Client | null) {
     this.threadId = threadId;
+    this.client = client;
+    // 创建 executor 并传入自身引用
+    this.executor = new Executor(this);
     makeObservable(this);
   }
 
@@ -53,6 +67,77 @@ export class Conversation {
     };
     this.elements.push(element);
     return element;
+  }
+
+  /** 从 events 数组恢复对话历史 */
+  @action.bound
+  restoreFromEvents(events: BaseEvent.IEventData[]): void {
+    // 以 human chat event 为分割点，将两个 human chat event 之间的事件包装成 assistantElement
+    let currentExecutionResponse: ExecutionResponse | null = null;
+
+    for (const eventData of events) {
+      try {
+        const event = createEventFromData(eventData);
+
+        // 如果是 human 的 chat 事件
+        if (isChatEvent(event) && event.roleName === 'human') {
+          // 如果有待处理的 AI 事件（上一轮对话的 AI 回复），先将它们包装成 assistantElement
+          if (currentExecutionResponse && currentExecutionResponse.events.length > 0) {
+            currentExecutionResponse.markCompleted();
+            this.addExecutionResponse(currentExecutionResponse);
+          }
+
+          // 重置 ExecutionResponse
+          currentExecutionResponse = null;
+
+          // 添加用户消息
+          this.addUserMessage(event.message);
+        } else {
+          // AI 的事件，累积到当前的 ExecutionResponse 中
+          if (!currentExecutionResponse) {
+            currentExecutionResponse = new ExecutionResponse();
+          }
+          currentExecutionResponse.upsertEvent(event);
+        }
+      } catch (error) {
+        console.error('Failed to restore event:', error, eventData);
+      }
+    }
+
+    // 处理最后一轮对话的 AI 回复（如果有）
+    if (currentExecutionResponse && currentExecutionResponse.events.length > 0) {
+      currentExecutionResponse.markCompleted();
+      this.addExecutionResponse(currentExecutionResponse);
+    }
+  }
+
+  /** 恢复历史数据 */
+  @flow.bound
+  *restoreDataByThreadId(threadId: string) {
+    try {
+      if (!this.client) {
+        throw new Error('Client not initialized');
+      }
+
+      this.isLoading = true;
+  
+      const state: ThreadState<{events: Array<BaseEvent.IEventData>}> = yield this.client.threads.getState(threadId);
+      const events = state.values.events;
+  
+      if (events.length > 0) {
+        this.restoreFromEvents(events);
+      }
+      else {
+        const welcomeEvent = ChatEvent.create(
+          'welcome',
+          '你好！我是 DeepResearch 助手。请告诉我你想研究什么主题？'
+        );
+        this.addStandaloneAssistantEvent(welcomeEvent);
+      }
+    }
+    finally {
+      this.isLoading = false;
+    }
   }
 
   /** 获取所有元素（用于 UI 渲染） */
