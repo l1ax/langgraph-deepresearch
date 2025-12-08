@@ -1,15 +1,26 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
+// @ts-expect-error
+import Typewriter from 'typewriter-effect/dist/core';
+
+const TYPEWRITER_STRINGS = ["正在准备研究：2025年半导体供应链分析...", "正在准备研究：对比Google和OpenAI的大模型发展方向..."];
 
 interface ConversationComposerProps {
   variant?: 'chat' | 'landing';
   value: string;
   placeholder?: string;
+  typewriterOptions?: {
+    enable: boolean;
+    strings?: string[];
+    delay?: number;
+    loop?: boolean;
+    autoStart?: boolean;
+  }
   onChange: (value: string) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   isLoading: boolean;
@@ -21,7 +32,14 @@ interface ConversationComposerProps {
 export const ConversationComposer: React.FC<ConversationComposerProps> = ({
   variant = 'chat',
   value,
-  placeholder = "输入研究主题，例如：'2024年人工智能发展趋势'...",
+  placeholder = "",
+  typewriterOptions = {
+    enable: true,
+    strings: TYPEWRITER_STRINGS,
+    delay: 100,
+    loop: true,
+    autoStart: true,
+  },
   onChange,
   onSubmit,
   isLoading,
@@ -30,16 +48,44 @@ export const ConversationComposer: React.FC<ConversationComposerProps> = ({
   className,
 }) => {
   const isLanding = variant === 'landing';
+  
   const setTextareaRef = (node: HTMLTextAreaElement | null) => {
     if (inputRef) {
       inputRef.current = node;
     }
   };
+  
   const setInputRef = (node: HTMLInputElement | null) => {
     if (inputRef) {
       inputRef.current = node;
     }
   };
+
+  const [animatedPlaceholder, setAnimatedPlaceholder] = useState('');
+
+  useEffect(() => {
+    if (!typewriterOptions.enable) return;
+
+    const typeWriter = new Typewriter(null, {
+      strings: typewriterOptions.strings || TYPEWRITER_STRINGS,
+      autoStart: typewriterOptions.autoStart || true,
+      loop: typewriterOptions.loop || true,
+      delay: typewriterOptions.delay || 100,
+      onCreateTextNode: (character: string) => {
+        setAnimatedPlaceholder((prev) => prev + character);
+        return null;
+      },
+      onRemoveNode: () => {
+        setAnimatedPlaceholder((prev) => prev.slice(0, -1));
+      }
+    });
+
+    return () => {
+      typeWriter.stop();
+    };
+  }, []);
+
+  const displayPlaceholder = animatedPlaceholder || placeholder;
 
   return (
     <form
@@ -54,9 +100,9 @@ export const ConversationComposer: React.FC<ConversationComposerProps> = ({
       {isLanding ? (
         <textarea
           ref={setTextareaRef}
+          placeholder={displayPlaceholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
           disabled={isLoading}
           className="w-full h-[60px] resize-none border-none bg-transparent text-base leading-relaxed text-slate-900 placeholder:text-slate-400 focus:outline-none"
         />
@@ -65,7 +111,7 @@ export const ConversationComposer: React.FC<ConversationComposerProps> = ({
           ref={setInputRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
+          placeholder={displayPlaceholder}
           disabled={isLoading}
           className="flex-1 border-none bg-transparent px-3 py-3 shadow-none focus-visible:ring-0 h-[60px]"
         />

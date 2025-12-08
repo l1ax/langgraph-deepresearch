@@ -175,6 +175,10 @@ const DeepResearchPage = observer(() => {
                   <ConversationComposer
                     variant="chat"
                     value={store.inputValue}
+                    typewriterOptions={{
+                      enable: false
+                    }}
+                    placeholder="Ask anything"
                     onChange={(value) => store.setInputValue(value)}
                     onSubmit={handleSubmit}
                     isLoading={store.isLoading}

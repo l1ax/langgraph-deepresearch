@@ -1,5 +1,5 @@
 import { observable, action, flow, computed, makeObservable } from 'mobx';
-import { Client } from '@langchain/langgraph-sdk';
+import { Client, Thread } from '@langchain/langgraph-sdk';
 import { Conversation } from './Conversation';
 import { ChatEvent } from './events';
 import { ExecutionResponse } from './ExecutionResponse';
@@ -51,14 +51,13 @@ export class DeepResearchPageStore {
 
   /** 创建新会话 */
   @action.bound
-  private createConversation(threadId: string, options?: { autoSelect?: boolean }): Conversation {
-    const autoSelect = options?.autoSelect ?? true;
+  private createConversation(threadId: string): Conversation {
     const conversation = new Conversation(threadId, this.client);
+
     this.conversations.push(conversation);
-    if (autoSelect) {
-      this.currentConversation = conversation;
-    }
+
     this.saveConversationThreadIds();
+
     return conversation;
   }
 
@@ -104,10 +103,9 @@ export class DeepResearchPageStore {
       if (savedThreadIds.length > 0) {
         // 恢复所有会话
         for (const threadId of savedThreadIds) {
-          const conversation = this.createConversation(threadId, { autoSelect: false });
+          const conversation = this.createConversation(threadId);
           conversation.restoreDataByThreadId(threadId);
         }
-        this.currentConversation = null;
       }
 
     } catch (error) {
@@ -140,9 +138,10 @@ export class DeepResearchPageStore {
 
     if (!conversation) {
       try {
-        const thread = yield this.client.threads.create();
+        const thread: Thread = yield this.client.threads.create();
         const threadId = thread.thread_id;
         conversation = this.createConversation(threadId);
+        this.currentConversation = conversation;
       } catch (error) {
         console.error('Failed to create conversation thread:', error);
         this.addErrorMessage('无法创建新的对话，请稍后重试或确认服务配置。');
