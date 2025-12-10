@@ -92,8 +92,8 @@ export const ConversationComposer: React.FC<ConversationComposerProps> = ({
       onSubmit={onSubmit}
       className={cn(
         isLanding
-          ? 'flex w-full flex-col gap-6 rounded-[32px] bg-white px-10 py-12 shadow-xl'
-          : 'relative flex items-end gap-2 rounded-2xl border border-[#E1E6F0] bg-white p-2 shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-[#4F6EC7]/40 focus-within:ring-offset-2',
+          ? 'flex w-full flex-col gap-6 rounded-[32px] bg-card px-10 py-12 shadow-2xl border border-border/50'
+          : 'relative flex items-end gap-2 rounded-3xl border border-input bg-card p-2 shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all',
         className
       )}
     >
@@ -104,7 +104,7 @@ export const ConversationComposer: React.FC<ConversationComposerProps> = ({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={isLoading}
-          className="w-full h-[60px] resize-none border-none bg-transparent text-base leading-relaxed text-slate-900 placeholder:text-slate-400 focus:outline-none"
+          className="w-full h-[60px] resize-none border-none bg-transparent text-lg leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
       ) : (
         <Input
@@ -113,7 +113,7 @@ export const ConversationComposer: React.FC<ConversationComposerProps> = ({
           onChange={(e) => onChange(e.target.value)}
           placeholder={displayPlaceholder}
           disabled={isLoading}
-          className="flex-1 border-none bg-transparent px-3 py-3 shadow-none focus-visible:ring-0 h-[60px]"
+          className="flex-1 border-none bg-transparent px-4 py-3 shadow-none focus-visible:ring-0 h-[52px] text-base"
         />
       )}
       <Button
@@ -122,9 +122,9 @@ export const ConversationComposer: React.FC<ConversationComposerProps> = ({
         disabled={!canSubmit}
         className={cn(
           isLanding
-            ? 'self-end h-12 w-12 rounded-2xl bg-[#4F6EC7] text-white shadow-md transition-colors hover:bg-[#3C5AB1]'
-            : 'h-10 w-10 rounded-xl bg-[#4F6EC7] text-white transition-all duration-200 mb-0.5 mr-0.5 hover:bg-[#3C5AB1] hover:scale-105',
-          !canSubmit && 'opacity-60 hover:scale-100'
+            ? 'self-end h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:bg-primary/90'
+            : 'h-10 w-10 rounded-full bg-primary text-primary-foreground transition-all duration-200 mb-1.5 mr-1.5 hover:bg-primary/90 hover:scale-105 shadow-sm',
+          !canSubmit && 'opacity-50 hover:scale-100 hover:shadow-none'
         )}
       >
         {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}

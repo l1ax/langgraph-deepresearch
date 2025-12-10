@@ -28,44 +28,45 @@ export const ChatEventRenderer = observer(
     return (
       <div
         className={cn(
-          'relative rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-sm max-w-full overflow-hidden transition-all duration-300',
+          'relative rounded-2xl px-6 py-4 text-sm leading-relaxed shadow-sm max-w-full overflow-hidden transition-all duration-300',
           isError
-            ? 'bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-red-900 dark:text-red-100'
+            ? 'bg-destructive/5 border border-destructive/20 text-destructive'
             : isFinalReportGeneration
-              ? 'bg-gradient-to-br from-slate-50 to-gray-50 dark:from-slate-900/50 dark:to-gray-900/50 border border-slate-200 dark:border-slate-700/50'
-              : 'bg-background border text-foreground',
+              ? 'bg-card border border-primary/20 ring-1 ring-primary/5 shadow-md'
+              : 'bg-card border border-border/50 text-foreground',
           'rounded-tl-sm',
           className
         )}
       >
         {/* 最终报告生成时显示标题栏 */}
         {isFinalReportGeneration && (
-          <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-200/60 dark:border-slate-700/40">
+          <div className={cn(
+            "flex items-center gap-3 mb-4 pb-4 border-b",
+            isError ? "border-destructive/10" : "border-border/50"
+          )}>
             <div
               className={cn(
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
                 isError
-                  ? 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400'
-                  : 'bg-slate-100 text-slate-700 dark:bg-slate-800/80 dark:text-slate-300'
+                  ? 'bg-destructive/10 text-destructive'
+                  : 'bg-primary/10 text-primary'
               )}
             >
               {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4.5 w-4.5 animate-spin" />
               ) : isError ? (
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className="h-4.5 w-4.5" />
               ) : isFinished ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <CheckCircle2 className="h-4.5 w-4.5" />
               ) : (
-                <MessageSquare className="h-4 w-4" />
+                <MessageSquare className="h-4.5 w-4.5" />
               )}
             </div>
             <div className="flex-1">
               <h3
                 className={cn(
                   'text-sm font-semibold',
-                  isError
-                    ? 'text-red-800 dark:text-red-200'
-                    : 'text-slate-800 dark:text-slate-200'
+                  isError ? 'text-destructive' : 'text-foreground'
                 )}
               >
                 最终研究报告
@@ -73,9 +74,7 @@ export const ChatEventRenderer = observer(
               <p
                 className={cn(
                   'text-xs',
-                  isError
-                    ? 'text-red-600/80 dark:text-red-400/80'
-                    : 'text-slate-600 dark:text-slate-400'
+                  isError ? 'text-destructive/80' : 'text-muted-foreground'
                 )}
               >
                 {isPending
@@ -99,11 +98,12 @@ export const ChatEventRenderer = observer(
             'prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5',
             'prose-pre:my-2 prose-pre:bg-muted prose-pre:rounded-lg',
             'prose-code:text-xs prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded',
-            'prose-code:before:content-none prose-code:after:content-none'
+            'prose-code:before:content-none prose-code:after:content-none',
+            isError ? 'text-destructive/90' : 'text-foreground'
           )}
         >
           {isError ? (
-            <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+            <div className="flex items-center gap-2 text-destructive">
               <AlertCircle className="h-4 w-4" />
               <span>生成报告时发生错误，请重试。</span>
             </div>
@@ -111,7 +111,7 @@ export const ChatEventRenderer = observer(
             <div className="relative">
               <Streamdown>{message}</Streamdown>
               {isRunning && !message.includes('Generating final report...') && (
-                <span className="inline-block w-0.5 h-4 ml-0.5 bg-slate-600 dark:bg-slate-400 animate-pulse" />
+                <span className="inline-block w-0.5 h-4 ml-0.5 bg-primary animate-pulse" />
               )}
             </div>
           ) : (

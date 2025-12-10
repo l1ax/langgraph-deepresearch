@@ -18,9 +18,10 @@ import { GroupEventRenderer } from '@/components/GroupEventRenderer';
 import { TreeViewUI } from '@/components/TreeViewUI';
 import { ConversationSidebar } from '@/components/ConversationSidebar';
 import { ConversationComposer } from '@/components/ConversationComposer';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ToastContainer } from '@/components/Toast';
 import { AuthButton } from '@/components/AuthButton';
-import {flowResult} from 'mobx';
+import { flowResult } from 'mobx';
 
 // 按 subType 注册渲染器
 EventRendererRegistry.register<ClarifyEvent.IData>('clarify', ClarifyEventRenderer);
@@ -28,6 +29,50 @@ EventRendererRegistry.register<BriefEvent.IData>('brief', BriefEventRenderer);
 EventRendererRegistry.register<ChatEvent.IData>('chat', ChatEventRenderer);
 EventRendererRegistry.register<ToolCallEvent.IData>('tool_call', ToolCallEventRenderer);
 EventRendererRegistry.register<GroupEvent.IData>('group', GroupEventRenderer);
+
+/** 会话加载时的骨架屏 */
+const ConversationSkeleton = () => (
+  <div className="mx-auto max-w-3xl space-y-8 pb-24 animate-in fade-in duration-500">
+    {/* 模拟用户提问 */}
+    <div className="flex w-full gap-4 justify-end pl-12">
+      <Skeleton className="h-[72px] w-[60%] rounded-2xl rounded-tr-sm" />
+      <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+    </div>
+
+    {/* 模拟 AI 回答 - 思考过程 */}
+    <div className="flex w-full gap-4 justify-start pr-12">
+      <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+      <div className="flex-1 space-y-4">
+        <div className="space-y-3">
+          {/* 树状视图骨架 */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-4 w-4 rounded" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+             <div className="ml-6 space-y-2 border-l-2 border-muted/50 pl-4">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-3 w-3 rounded" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-3 w-3 rounded" />
+                  <Skeleton className="h-3 w-40" />
+                </div>
+             </div>
+          </div>
+        </div>
+        
+        {/* 内容骨架 */}
+        <div className="space-y-2 pt-2">
+           <Skeleton className="h-4 w-full" />
+           <Skeleton className="h-4 w-[90%]" />
+           <Skeleton className="h-4 w-[95%]" />
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 /** 用户消息元素渲染组件 */
 const UserElementRenderer = observer<{ element: Conversation.UserElement }>(({ element }) => (
@@ -64,7 +109,6 @@ const AssistantElementRenderer = observer<{ element: Conversation.AssistantEleme
   );
 });
 
-
 /** Loading 指示器组件 */
 const LoadingIndicator = observer(() => (
   <div className="flex w-full gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300 justify-start pr-12">
@@ -95,12 +139,12 @@ const LoginPrompt = observer<{ store: DeepResearchPageStore }>(({ store }) => {
 
   return (
     <div className="flex flex-col items-center justify-center space-y-6 py-12">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#E9EEF6]">
-        <Sparkles className="h-10 w-10 text-[#4F6EC7]" />
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+        <Sparkles className="h-10 w-10 text-primary" />
       </div>
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-semibold text-slate-900">欢迎使用 DeepResearch</h2>
-        <p className="text-slate-600 max-w-md">
+        <h2 className="text-2xl font-semibold text-foreground">欢迎使用 DeepResearch</h2>
+        <p className="text-muted-foreground max-w-md">
           使用 GitHub 账号登录后，即可开始深度研究之旅。
           <br />
           您的对话历史将被安全保存。
@@ -110,7 +154,7 @@ const LoginPrompt = observer<{ store: DeepResearchPageStore }>(({ store }) => {
         onClick={handleSignIn}
         disabled={userStore.isAuthLoading}
         size="lg"
-        className="gap-2 bg-[#24292e] hover:bg-[#1a1e22] text-white"
+        className="gap-2 bg-foreground text-background hover:bg-foreground/90"
       >
         <Github className="h-5 w-5" />
         使用 GitHub 登录
@@ -155,6 +199,9 @@ const DeepResearchPage = observer(() => {
   const showLoading = store.isLoading && lastElement && Conversation.isUserElement(lastElement);
   const hasConversation = Boolean(store.currentConversation);
   const isAuthenticated = userStore.isAuthenticated;
+  
+  // 判断是否正在切换会话加载历史记录
+  const isHistoryLoading = store.isHistoryLoading;
 
   return (
     <div className="flex h-screen w-full min-h-0 bg-background text-foreground font-sans selection:bg-primary/20">
@@ -167,19 +214,19 @@ const DeepResearchPage = observer(() => {
       {/* Main Content */}
       <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
         {/* Header */}
-        <header className="sticky top-0 z-10 flex h-20 items-center justify-between bg-white/90 px-6 backdrop-blur-md">
+        <header className="sticky top-0 z-10 flex h-16 items-center justify-between bg-background/80 px-6 backdrop-blur-xl border-b border-border/50">
           <div className="flex items-center gap-3">
             {/* Sidebar Toggle Button */}
             <Button
               variant="ghost"
               size="icon"
               onClick={() => store.toggleSidebar()}
-              className="h-9 w-9 text-slate-600 hover:bg-[#E9EEF6] hover:text-slate-900"
+              className="h-9 w-9 text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <Menu className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E9EEF6] text-[#4F6EC7]">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Sparkles className="h-4 w-4" />
               </div>
               <h1 className="text-lg font-semibold tracking-tight">DeepResearch</h1>
@@ -197,32 +244,36 @@ const DeepResearchPage = observer(() => {
         <div
           className={cn(
             'flex-1 min-h-0 overflow-hidden relative transition-colors duration-200',
-            hasConversation ? 'bg-white' : 'bg-[#F0F4F8]'
+            hasConversation ? 'bg-background' : 'bg-muted/30'
           )}
         >
           {hasConversation ? (
             <div className="flex h-full min-h-0 flex-col">
               <div className="flex-1 min-h-0">
                 <ScrollArea className="h-full p-4 md:p-8" ref={scrollAreaRef}>
-                  <div className="mx-auto max-w-3xl space-y-8 pb-24">
-                    {/* 按照 elements 的顺序渲染所有元素 */}
-                    {store.elements.map((element) => {
-                      if (Conversation.isUserElement(element)) {
-                        return <UserElementRenderer key={element.id} element={element} />;
-                      } else if (Conversation.isAssistantElement(element)) {
-                        return <AssistantElementRenderer key={element.id} element={element} />;
-                      }
-                      return null;
-                    })}
+                   {isHistoryLoading ? (
+                      <ConversationSkeleton />
+                   ) : (
+                      <div className="mx-auto max-w-3xl space-y-8 pb-24">
+                        {/* 按照 elements 的顺序渲染所有元素 */}
+                        {store.elements.map((element) => {
+                          if (Conversation.isUserElement(element)) {
+                            return <UserElementRenderer key={element.id} element={element} />;
+                          } else if (Conversation.isAssistantElement(element)) {
+                            return <AssistantElementRenderer key={element.id} element={element} />;
+                          }
+                          return null;
+                        })}
 
-                    {/* Loading 指示器 */}
-                    {showLoading && <LoadingIndicator />}
+                        {/* Loading 指示器 */}
+                        {showLoading && <LoadingIndicator />}
 
-                    <div ref={messagesEndRef} />
-                  </div>
+                        <div ref={messagesEndRef} />
+                      </div>
+                   )}
                 </ScrollArea>
               </div>
-              <div className="border-t border-[#E1E6F0] bg-white p-4 md:p-6">
+              <div className="border-t border-border/50 bg-background p-4 md:p-6">
                 <div className="mx-auto max-w-3xl">
                   <ConversationComposer
                     variant="chat"
@@ -262,8 +313,8 @@ const DeepResearchPage = observer(() => {
                       inputRef={composerInputRef}
                     />
                     {store.isCreatingConversation && (
-                      <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-[#4F6EC7]" />
+                      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted border-t-primary" />
                         <span>正在创建对话...</span>
                       </div>
                     )}
@@ -277,7 +328,7 @@ const DeepResearchPage = observer(() => {
                         <Button
                           key={prompt}
                           variant="ghost"
-                          className="rounded-2xl bg-white px-4 py-2 text-sm text-slate-600 shadow-sm hover:bg-slate-50"
+                          className="rounded-full bg-card px-6 py-2 text-sm text-muted-foreground shadow-sm hover:bg-primary/5 hover:text-primary hover:shadow-md border border-border/50 transition-all"
                           onClick={() => handleSuggestedPrompt(prompt)}
                           disabled={store.isCreatingConversation}
                         >

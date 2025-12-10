@@ -46,6 +46,9 @@ export class DeepResearchPageStore {
   /** 加载会话列表的 loading 状态 */
   @observable isLoadingConversations: boolean = false;
 
+  /** 加载历史记录的 loading 状态 */
+  @observable isHistoryLoading: boolean = false;
+
   /** Toast 消息队列 */
   @observable toasts: DeepResearchPageStore.Toast[] = [];
 
@@ -150,13 +153,22 @@ export class DeepResearchPageStore {
   }
 
   /** 切换到指定的会话 */
-  @action.bound
-  switchToConversation(threadId: string) {
+  @flow.bound
+  *switchToConversation(threadId: string): Generator<Promise<any>, void, any> {
     const conversation = this.conversations.find(c => c.threadId === threadId);
 
     if (conversation) {
-      this.currentConversation = conversation;
-      this.currentConversation.restoreChatHistoryByThreadId(threadId);
+      try {
+        this.isHistoryLoading = true;
+        this.currentConversation = conversation;
+        // 使用 yield 处理异步操作，确保 loading 状态持续到加载完成
+        yield conversation.restoreChatHistoryByThreadId(threadId);
+      } catch (error) {
+        console.error('Failed to restore chat history:', error);
+        this.showToast('加载会话历史失败', 'error');
+      } finally {
+        this.isHistoryLoading = false;
+      }
     }
   }
 

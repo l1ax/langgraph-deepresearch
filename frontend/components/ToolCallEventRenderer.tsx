@@ -18,85 +18,85 @@ const JsonValue: React.FC<{
 }> = ({ value, depth = 0, initialExpanded = true }) => {
   const [isExpanded, setIsExpanded] = useState(initialExpanded);
 
-  // 基础类型渲染
-  if (value === null) {
-    return <span className="text-orange-600 dark:text-orange-400">null</span>;
-  }
-  if (value === undefined) {
-    return <span className="text-slate-400 dark:text-slate-500">undefined</span>;
-  }
-  if (typeof value === 'boolean') {
-    return <span className="text-purple-600 dark:text-purple-400">{value.toString()}</span>;
-  }
-  if (typeof value === 'number') {
-    return <span className="text-blue-600 dark:text-blue-400">{value}</span>;
-  }
-  if (typeof value === 'string') {
-    return <span className="text-emerald-600 dark:text-emerald-400">"{value}"</span>;
-  }
-
-  // 数组渲染
-  if (Array.isArray(value)) {
-    if (value.length === 0) {
-      return <span className="text-slate-500 dark:text-slate-400">[]</span>;
+    // 基础类型渲染
+    if (value === null) {
+      return <span className="text-orange-500">null</span>;
+    }
+    if (value === undefined) {
+      return <span className="text-muted-foreground">undefined</span>;
+    }
+    if (typeof value === 'boolean') {
+      return <span className="text-purple-500">{value.toString()}</span>;
+    }
+    if (typeof value === 'number') {
+      return <span className="text-blue-500">{value}</span>;
+    }
+    if (typeof value === 'string') {
+      return <span className="text-emerald-600 dark:text-emerald-400">"{value}"</span>;
     }
 
-    return (
-      <div className="inline">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="inline-flex items-center gap-0.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-        >
-          {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-          <span className="text-xs">[{value.length}]</span>
-        </button>
-        {isExpanded && (
-          <div className="pl-4 border-l border-slate-200 dark:border-slate-700 ml-1">
-            {value.map((item, index) => (
-              <div key={index} className="py-0.5">
-                <span className="text-slate-400 dark:text-slate-500 text-xs mr-2">{index}:</span>
-                <JsonValue value={item} depth={depth + 1} initialExpanded={depth < 1} />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
+    // 数组渲染
+    if (Array.isArray(value)) {
+      if (value.length === 0) {
+        return <span className="text-muted-foreground">[]</span>;
+      }
 
-  // 对象渲染
-  if (typeof value === 'object') {
-    const entries = Object.entries(value);
-    if (entries.length === 0) {
-      return <span className="text-slate-500 dark:text-slate-400">{'{}'}</span>;
+      return (
+        <div className="inline">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="inline-flex items-center gap-0.5 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            <span className="text-xs">[{value.length}]</span>
+          </button>
+          {isExpanded && (
+            <div className="pl-4 border-l border-border/50 ml-1">
+              {value.map((item, index) => (
+                <div key={index} className="py-0.5">
+                  <span className="text-muted-foreground text-xs mr-2">{index}:</span>
+                  <JsonValue value={item} depth={depth + 1} initialExpanded={depth < 1} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
     }
 
-    return (
-      <div className="inline">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="inline-flex items-center gap-0.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-        >
-          {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-          <span className="text-xs">{'{...}'}</span>
-        </button>
-        {isExpanded && (
-          <div className="pl-4 border-l border-slate-200 dark:border-slate-700 ml-1">
-            {entries.map(([key, val]) => (
-              <div key={key} className="py-0.5">
-                <span className="text-rose-600 dark:text-rose-400 text-sm">"{key}"</span>
-                <span className="text-slate-400 dark:text-slate-500">: </span>
-                <JsonValue value={val} depth={depth + 1} initialExpanded={depth < 1} />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
+    // 对象渲染
+    if (typeof value === 'object') {
+      const entries = Object.entries(value);
+      if (entries.length === 0) {
+        return <span className="text-muted-foreground">{'{}'}</span>;
+      }
 
-  return <span className="text-slate-600 dark:text-slate-400">{String(value)}</span>;
-};
+      return (
+        <div className="inline">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="inline-flex items-center gap-0.5 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            <span className="text-xs">{'{...}'}</span>
+          </button>
+          {isExpanded && (
+            <div className="pl-4 border-l border-border/50 ml-1">
+              {entries.map(([key, val]) => (
+                <div key={key} className="py-0.5">
+                  <span className="text-rose-500 text-sm">"{key}"</span>
+                  <span className="text-muted-foreground">: </span>
+                  <JsonValue value={val} depth={depth + 1} initialExpanded={depth < 1} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return <span className="text-muted-foreground">{String(value)}</span>;
+  };
 
 /**
  * 工具名称映射
@@ -141,25 +141,25 @@ export const ToolCallEventRenderer = observer(
     return (
       <div
         className={cn(
-          'group rounded-md border border-transparent transition-all duration-200',
-          isExpanded ? 'border-border bg-muted/30 shadow-sm my-2' : 'hover:bg-muted/50 my-0.5',
+          'group rounded-lg border border-transparent transition-all duration-200',
+          isExpanded ? 'border-border bg-card shadow-sm my-2' : 'hover:bg-muted/50 my-0.5',
           className
         )}
       >
         {/* 标题栏 - 可点击折叠 */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex w-full items-center gap-2 p-1.5 text-left rounded-md transition-colors"
+          className="flex w-full items-center gap-2 p-2 text-left rounded-lg transition-colors"
         >
           {/* 工具图标 */}
           <div
             className={cn(
-              'flex h-5 w-5 shrink-0 items-center justify-center rounded-sm',
+              'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border shadow-sm',
               isError
-                ? 'text-red-500'
+                ? 'bg-destructive/10 border-destructive/20 text-destructive'
                 : isFinished
-                  ? 'text-slate-500'
-                  : 'text-violet-500 animate-pulse'
+                  ? 'bg-muted border-border text-muted-foreground'
+                  : 'bg-primary/10 border-primary/20 text-primary animate-pulse'
             )}
           >
             {isLoading ? (
@@ -179,8 +179,8 @@ export const ToolCallEventRenderer = observer(
               className={cn(
                 'text-xs font-medium truncate',
                 isError
-                  ? 'text-red-600 dark:text-red-400'
-                  : 'text-slate-600 dark:text-slate-400'
+                  ? 'text-destructive'
+                  : 'text-foreground'
               )}
             >
               {displayName}
@@ -197,19 +197,19 @@ export const ToolCallEventRenderer = observer(
               isExpanded && 'rotate-180 opacity-100'
             )}
           >
-            <ChevronDown className="h-3.5 w-3.5" />
+            <ChevronDown className="h-4 w-4" />
           </div>
         </button>
 
         {/* 详情 - 可折叠 */}
         {isExpanded && (
-          <div className="px-3 pb-3 pt-1 space-y-3 pl-8">
+          <div className="px-3 pb-3 pt-1 space-y-3 pl-10">
             {/* 调用参数 */}
             <div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">
+              <div className="text-xs text-muted-foreground mb-1.5 font-medium">
                 调用参数
               </div>
-              <div className="font-mono text-xs bg-white dark:bg-slate-900 rounded-md p-2.5 overflow-x-auto border border-slate-200/60 dark:border-slate-700/60">
+              <div className="font-mono text-xs bg-muted/50 rounded-lg p-3 overflow-x-auto border border-border/50">
                 <JsonValue value={tool_arguments} initialExpanded={true} />
               </div>
             </div>
@@ -217,12 +217,12 @@ export const ToolCallEventRenderer = observer(
             {/* 调用结果 */}
             {hasResult && (
               <div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">
+                <div className="text-xs text-muted-foreground mb-1.5 font-medium">
                   调用结果
                 </div>
-                <div className="font-mono text-xs bg-white dark:bg-slate-900 rounded-md p-2.5 overflow-x-auto border border-slate-200/60 dark:border-slate-700/60 max-h-64 overflow-y-auto">
+                <div className="font-mono text-xs bg-muted/50 rounded-lg p-3 overflow-x-auto border border-border/50 max-h-64 overflow-y-auto">
                   {typeof tool_result === 'string' ? (
-                    <pre className="whitespace-pre-wrap break-words text-slate-700 dark:text-slate-300">
+                    <pre className="whitespace-pre-wrap break-words text-foreground">
                       {tool_result}
                     </pre>
                   ) : (

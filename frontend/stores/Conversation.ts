@@ -152,6 +152,7 @@ export class Conversation {
 
       this.isLoading = true;
   
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const state: ThreadState<{events: Array<BaseEvent.IEventData>}> = yield this.client.threads.getState(threadId);
 
       this.threadState = state;

@@ -70,12 +70,12 @@ export const AuthButton = observer(({ store, variant = 'default' }: AuthButtonPr
             {currentUser.avatarUrl ? (
               <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name || ''} />
             ) : null}
-            <AvatarFallback className="bg-[#4F6EC7]/15 text-[#4F6EC7]">
+            <AvatarFallback className="bg-primary/10 text-primary">
               <User className="h-4 w-4" />
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-slate-900 truncate">
+            <p className="text-sm font-medium text-foreground truncate">
               {currentUser.name || currentUser.email}
             </p>
           </div>
@@ -84,7 +84,7 @@ export const AuthButton = observer(({ store, variant = 'default' }: AuthButtonPr
           variant="ghost"
           size="icon"
           onClick={handleSignOut}
-          className="h-8 w-8 shrink-0 text-slate-500 hover:text-red-500"
+          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
           title="登出"
         >
           <LogOut className="h-4 w-4" />
@@ -100,7 +100,7 @@ export const AuthButton = observer(({ store, variant = 'default' }: AuthButtonPr
         {currentUser.avatarUrl ? (
           <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name || ''} />
         ) : null}
-        <AvatarFallback className="bg-[#4F6EC7]/15 text-[#4F6EC7]">
+        <AvatarFallback className="bg-primary/10 text-primary">
           <User className="h-4 w-4" />
         </AvatarFallback>
       </Avatar>
@@ -108,7 +108,7 @@ export const AuthButton = observer(({ store, variant = 'default' }: AuthButtonPr
         variant="ghost"
         size="sm"
         onClick={handleSignOut}
-        className="gap-1 text-slate-600 hover:text-red-500"
+        className="gap-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
       >
         <LogOut className="h-4 w-4" />
         <span className="hidden md:inline">登出</span>

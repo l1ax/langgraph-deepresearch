@@ -27,40 +27,41 @@ export const BriefEventRenderer = observer(
     return (
       <div
         className={cn(
-          'rounded-xl border p-5 shadow-sm transition-all duration-300',
+          'rounded-2xl border p-6 shadow-sm transition-all duration-300',
           // 根据 status 显示不同的样式
           isError
-            ? 'border-red-200 bg-gradient-to-br from-red-50 to-red-100 dark:border-red-900/50 dark:from-red-950/40 dark:to-red-900/40'
-            : 'border-sky-200 bg-gradient-to-br from-sky-50 to-indigo-50 dark:border-sky-900/50 dark:from-sky-950/40 dark:to-indigo-950/40',
+            ? 'border-destructive/20 bg-destructive/5'
+            : 'border-border/50 bg-card',
           isLoading && 'animate-pulse',
           className
         )}
       >
         {/* 标题栏 */}
-        <div className="flex items-center gap-3 mb-4 pb-3 border-b border-sky-200/60 dark:border-sky-800/40">
+        <div className={cn(
+          "flex items-center gap-3 mb-4 pb-4 border-b",
+          isError ? "border-destructive/10" : "border-border/50"
+        )}>
           <div
             className={cn(
-              'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+              'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
               isError
-                ? 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400'
-                : 'bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400'
+                ? 'bg-destructive/10 text-destructive'
+                : 'bg-primary/10 text-primary'
             )}
           >
             {isLoading ? (
-              <Loader2 className="h-4.5 w-4.5 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : isError ? (
-              <AlertCircle className="h-4.5 w-4.5" />
+              <AlertCircle className="h-5 w-5" />
             ) : (
-              <BookOpen className="h-4.5 w-4.5" />
+              <BookOpen className="h-5 w-5" />
             )}
           </div>
           <div className="flex-1">
             <h3
               className={cn(
                 'text-sm font-semibold',
-                isError
-                  ? 'text-red-800 dark:text-red-200'
-                  : 'text-sky-800 dark:text-sky-200'
+                isError ? 'text-destructive' : 'text-foreground'
               )}
             >
               研究概要
@@ -68,9 +69,7 @@ export const BriefEventRenderer = observer(
             <p
               className={cn(
                 'text-xs',
-                isError
-                  ? 'text-red-600/80 dark:text-red-400/80'
-                  : 'text-sky-600/80 dark:text-sky-400/80'
+                isError ? 'text-destructive/80' : 'text-muted-foreground'
               )}
             >
               {isLoading
@@ -84,13 +83,13 @@ export const BriefEventRenderer = observer(
           </div>
           <div
             className={cn(
-              'flex h-7 w-7 items-center justify-center rounded-md',
+              'flex h-8 w-8 items-center justify-center rounded-lg',
               isError
-                ? 'bg-red-100/60 text-red-500 dark:bg-red-900/30 dark:text-red-400'
-                : 'bg-sky-100/60 text-sky-500 dark:bg-sky-900/30 dark:text-sky-400'
+                ? 'bg-destructive/5 text-destructive/60'
+                : 'bg-muted text-muted-foreground'
             )}
           >
-            <FileText className="h-3.5 w-3.5" />
+            <FileText className="h-4 w-4" />
           </div>
         </div>
 
@@ -99,21 +98,21 @@ export const BriefEventRenderer = observer(
           className={cn(
             'prose prose-sm dark:prose-invert max-w-none prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5',
             isError
-              ? 'prose-headings:text-red-800 dark:prose-headings:text-red-200 prose-p:text-red-700 dark:prose-p:text-red-300'
-              : 'prose-headings:text-sky-800 dark:prose-headings:text-sky-200 prose-p:text-sky-700 dark:prose-p:text-sky-300 prose-li:text-sky-700 dark:prose-li:text-sky-300 prose-strong:text-sky-800 dark:prose-strong:text-sky-200'
+              ? 'prose-headings:text-destructive prose-p:text-destructive/90'
+              : 'prose-headings:text-foreground prose-p:text-muted-foreground prose-li:text-muted-foreground prose-strong:text-foreground'
           )}
         >
           {isError ? (
-            <p className="text-red-600 dark:text-red-400">生成研究概要时发生错误，请重试。</p>
+            <p className="text-destructive">生成研究概要时发生错误，请重试。</p>
           ) : research_brief ? (
             <div className="relative">
               <Streamdown>{research_brief}</Streamdown>
               {isRunning && (
-                <span className="inline-block w-0.5 h-4 ml-0.5 bg-sky-600 dark:bg-sky-400 animate-pulse" />
+                <span className="inline-block w-0.5 h-4 ml-0.5 bg-primary animate-pulse" />
               )}
             </div>
           ) : (
-            <p className="text-sky-600/70 dark:text-sky-400/70 italic flex items-center gap-2">
+            <p className="text-muted-foreground italic flex items-center gap-2">
               {isPending ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin inline-block" />

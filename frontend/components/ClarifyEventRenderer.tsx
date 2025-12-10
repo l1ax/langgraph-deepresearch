@@ -31,19 +31,18 @@ export const ClarifyEventRenderer = observer(
       return (
         <div
           className={cn(
-            'flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm animate-pulse',
-            'dark:border-slate-700 dark:bg-slate-900/30',
+            'flex items-start gap-4 rounded-xl border border-border/50 bg-card p-5 shadow-sm transition-all',
             className
           )}
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-            <Loader2 className="h-4 w-4 animate-spin" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Loader2 className="h-5 w-5 animate-spin" />
           </div>
-          <div className="flex-1 space-y-1">
-            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+          <div className="flex-1 space-y-1.5">
+            <p className="text-sm font-medium text-foreground">
               {isPending ? '准备分析...' : '正在分析您的需求...'}
             </p>
-            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+            <p className="text-sm text-muted-foreground leading-relaxed">
               {verification || question || '请稍候，正在理解您的研究意图'}
             </p>
           </div>
@@ -56,19 +55,18 @@ export const ClarifyEventRenderer = observer(
       return (
         <div
           className={cn(
-            'flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm',
-            'dark:border-red-900/50 dark:bg-red-950/30',
+            'flex items-start gap-4 rounded-xl border border-destructive/20 bg-destructive/5 p-5 shadow-sm',
             className
           )}
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400">
-            <AlertCircle className="h-4 w-4" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+            <AlertCircle className="h-5 w-5" />
           </div>
-          <div className="flex-1 space-y-1">
-            <p className="text-sm font-medium text-red-800 dark:text-red-200">
+          <div className="flex-1 space-y-1.5">
+            <p className="text-sm font-medium text-destructive">
               分析失败
             </p>
-            <p className="text-sm text-red-700 dark:text-red-300 leading-relaxed">
+            <p className="text-sm text-destructive/80 leading-relaxed">
               分析您的需求时发生错误，请重试。
             </p>
           </div>
@@ -81,19 +79,18 @@ export const ClarifyEventRenderer = observer(
       return (
         <div
           className={cn(
-            'flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm',
-            'dark:border-amber-900/50 dark:bg-amber-950/30',
+            'flex items-start gap-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-5 shadow-sm',
             className
           )}
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400">
-            <MessageCircleQuestion className="h-4 w-4" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <MessageCircleQuestion className="h-5 w-5" />
           </div>
-          <div className="flex-1 space-y-1">
-            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+          <div className="flex-1 space-y-1.5">
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
               需要更多信息
             </p>
-            <p className="text-sm text-amber-700 dark:text-amber-300 leading-relaxed">
+            <p className="text-sm text-amber-600/90 dark:text-amber-400/90 leading-relaxed">
               {question}
             </p>
           </div>
@@ -105,19 +102,18 @@ export const ClarifyEventRenderer = observer(
     return (
       <div
         className={cn(
-          'flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm',
-          'dark:border-emerald-900/50 dark:bg-emerald-950/30',
+          'flex items-start gap-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5 shadow-sm',
           className
         )}
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400">
-          <CheckCircle2 className="h-4 w-4" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+          <CheckCircle2 className="h-5 w-5" />
         </div>
-        <div className="flex-1 space-y-1">
-          <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+        <div className="flex-1 space-y-1.5">
+          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
             理解确认
           </p>
-          <p className="text-sm text-emerald-700 dark:text-emerald-300 leading-relaxed">
+          <p className="text-sm text-emerald-600/90 dark:text-emerald-400/90 leading-relaxed">
             {verification || '已理解您的研究需求，正在开始研究...'}
           </p>
         </div>

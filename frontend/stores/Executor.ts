@@ -31,8 +31,6 @@ interface IConversation {
  * Executor 类
  * 负责与后端通信、存储和处理事件
  * 通过 conversation 引用访问 client 和 threadId
- * 
- * 注意：事件持久化已移至 backend，在 graph 运行时自动保存到数据库
  */
 export class Executor {
   /** Conversation 引用 */
