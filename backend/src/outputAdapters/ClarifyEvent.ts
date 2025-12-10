@@ -10,8 +10,11 @@ export class ClarifyEvent extends BaseEvent<ClarifyEvent.IContent> {
         },
     };
 
-    constructor() {
-        super('/ai/clarify');
+    /**
+     * @param deterministicId 可选的确定性 ID
+     */
+    constructor(deterministicId?: string) {
+        super('/ai/clarify', deterministicId);
     }
 }
 

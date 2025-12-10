@@ -15,7 +15,7 @@ import { StateAnnotation } from '../../state';
 import { researchAgentGraph } from '../../graph/researchAgentGraph';
 import { HumanMessage } from '@langchain/core/messages';
 import { thinkTool } from '../../tools';
-import { GroupEvent, ToolCallEvent } from '../../outputAdapters';
+import { BaseEvent, GroupEvent, ToolCallEvent } from '../../outputAdapters';
 import {traceable} from 'langsmith/traceable';
 
 // 系统常量 - 应与 supervisor.ts 中的值匹配
@@ -89,14 +89,26 @@ export const supervisorTools = traceable(async (
         const supervisorGroupId = state.supervisor_group_id;
 
         // 为每个工具调用创建并发送 running 状态的 ToolCallEvent
+        const threadId = config?.configurable?.thread_id as string | undefined;
+        const checkpointId = config?.configurable?.checkpoint_id as string | undefined;
+        const nodeName = 'supervisorTools';
+
         for (const toolCall of toolCalls) {
             // ConductResearch 调用不创建 ToolCallEvent，直接用 research group展示
             if (toolCall.name === 'ConductResearch') {
                 continue;
             }
 
-            const event = new ToolCallEvent('supervisor');
             const toolCallId = toolCall.id || '';
+            const event = new ToolCallEvent(
+                'supervisor',
+                BaseEvent.generateDeterministicId(
+                    threadId,
+                    checkpointId,
+                    nodeName,
+                    `tool-call-${toolCall.name}-${toolCallId}`
+                )
+            );
             event.setToolCall(
                 toolCall.name,
                 toolCall.args,
@@ -173,8 +185,16 @@ export const supervisorTools = traceable(async (
         // 如果已经超过迭代次数，不再启动新的研究
         if (conductResearchCalls.length > 0 && !shouldEnd) {
             // 启动并行研究代理
-            const researchPromises = conductResearchCalls.map((toolCall: any) => {
-                const groupEvent = new GroupEvent('researcher');
+            const researchPromises = conductResearchCalls.map((toolCall: any, index: number) => {
+                const groupEvent = new GroupEvent(
+                    'researcher',
+                    BaseEvent.generateDeterministicId(
+                        threadId,
+                        checkpointId,
+                        nodeName,
+                        `researcher-group-${toolCall.args.research_topic}-${index}`
+                    )
+                );
 
                 // 设置 parentId 为 supervisor GroupEvent 的 id，使 researcher group event 被聚合到 supervisor group event 里
                 if (supervisorGroupId) {

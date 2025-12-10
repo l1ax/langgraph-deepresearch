@@ -9,6 +9,7 @@ import { END, START, StateGraph } from '@langchain/langgraph';
 import { StateAnnotation } from '../state';
 import { supervisor, supervisorTools } from '../nodes';
 import { isAIMessage } from '@langchain/core/messages';
+import { withEventPersistence } from '../utils';
 
 // ===== 路由函数 =====
 
@@ -54,12 +55,18 @@ function routeAfterTools(state: typeof StateAnnotation.State) {
     return 'supervisor';
 }
 
+// ===== 包装节点以支持事件持久化 =====
+// 使用 as any 绕过 TraceableFunction 的类型限制，保持原有功能
+
+const persistingSupervisor = withEventPersistence(supervisor);
+const persistingSupervisorTools = withEventPersistence(supervisorTools);
+
 // ===== 构建图 =====
 
 // 创建工作流图
 export const supervisorGraphBuilder = new StateGraph(StateAnnotation)
-    .addNode('supervisor', supervisor)
-    .addNode('supervisor_tools', supervisorTools)
+    .addNode('supervisor', persistingSupervisor as any)
+    .addNode('supervisor_tools', persistingSupervisorTools as any)
     .addEdge(START, 'supervisor')
     .addConditionalEdges('supervisor', shouldContinue)
     .addConditionalEdges('supervisor_tools', routeAfterTools);

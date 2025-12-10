@@ -3,6 +3,8 @@
  */
 
 export { checkpointer, initCheckpointer } from './checkpointer';
+export { withPersistingWriter, withEventPersistence } from './persistingWriter';
+export * as eventStore from './eventStore';
 
 /**
  * 获取当前日期

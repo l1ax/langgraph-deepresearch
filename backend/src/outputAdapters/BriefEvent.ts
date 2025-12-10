@@ -8,8 +8,11 @@ export class BriefEvent extends BaseEvent<BriefEvent.IContent> {
         },
     };
 
-    constructor() {
-        super('/ai/brief');
+    /**
+     * @param deterministicId 可选的确定性 ID
+     */
+    constructor(deterministicId?: string) {
+        super('/ai/brief', deterministicId);
     }
 }
 

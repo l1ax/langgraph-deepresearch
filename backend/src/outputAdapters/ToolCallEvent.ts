@@ -11,8 +11,12 @@ export class ToolCallEvent extends BaseEvent<ToolCallEvent.IContent> {
         },
     };
 
-    constructor(role: BaseEvent.RoleName) {
-        super(BaseEvent.createEventType(role, 'tool_call'));
+    /**
+     * @param role 角色名称
+     * @param deterministicId 可选的确定性 ID
+     */
+    constructor(role: BaseEvent.RoleName, deterministicId?: string) {
+        super(BaseEvent.createEventType(role, 'tool_call'), deterministicId);
     }
 
     /** 设置工具调用信息 */

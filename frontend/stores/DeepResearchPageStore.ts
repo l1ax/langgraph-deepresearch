@@ -222,6 +222,7 @@ export class DeepResearchPageStore {
   /** 清理资源 */
   @action.bound
   dispose() {
+    this.conversations.forEach(conversation => conversation.dispose());
     userStore.events.off('userChange', this.onUserChange);
   }
 

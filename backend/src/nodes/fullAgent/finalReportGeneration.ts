@@ -12,7 +12,7 @@ import { getTodayStr } from '../../utils';
 import dotenv from 'dotenv';
 import {ChatDeepSeek} from '@langchain/deepseek';
 import {LangGraphRunnableConfig} from '@langchain/langgraph';
-import {ChatEvent} from '../../outputAdapters';
+import {BaseEvent, ChatEvent} from '../../outputAdapters';
 import {traceable} from 'langsmith/traceable';
 dotenv.config();
 
@@ -60,7 +60,19 @@ export const finalReportGeneration = traceable(async (
     // 合并所有研究笔记
     const findings = notes.join('\n\n');
 
-    const chatEvent = new ChatEvent('ai');
+    const threadId = config?.configurable?.thread_id as string | undefined;
+    const checkpointId = config?.configurable?.checkpoint_id as string | undefined;
+    const nodeName = 'finalReportGeneration';
+
+    const chatEvent = new ChatEvent(
+        'ai',
+        BaseEvent.generateDeterministicId(
+            threadId,
+            checkpointId,
+            nodeName,
+            'final-report-chat'
+        )
+    );
     chatEvent.setMessage('Generating final report...');
     if (config.writer) {
         config.writer(chatEvent.setStatus('running').toJSON());

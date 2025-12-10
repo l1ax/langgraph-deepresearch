@@ -25,3 +25,30 @@ model Thread {
   @@index([userId])
   @@index([createdAt])
 }
+
+/// Event 模型 - 存储会话中的事件数据
+/// 用于在节点运行完成前持久化事件，防止用户中途退出导致数据丢失
+/// 注意：不使用外键约束，因为 Event 可能在 Thread 创建之前被保存（backend 先于 frontend 保存）
+model Event {
+  /// 事件唯一标识（使用后端生成的 event id）
+  id        String   @id
+  /// 所属会话（不使用外键，允许 thread 记录稍后创建）
+  threadId  String
+  /// 事件类型，格式为 /{roleName}/{subType}
+  eventType String
+  /// 事件状态: pending | running | finished | error
+  status    String
+  /// 事件内容（JSON 格式）
+  content   Json
+  /// 父事件 ID（可选，用于构建事件树）
+  parentId  String?
+  /// 事件顺序（用于排序恢复）
+  sequence  Int
+  /// 创建时间
+  createdAt DateTime @default(now())
+  /// 更新时间
+  updatedAt DateTime @updatedAt
+
+  @@index([threadId])
+  @@index([threadId, sequence])
+}

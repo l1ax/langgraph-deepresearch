@@ -12,6 +12,7 @@ import {
     researchToolNode,
 } from '../nodes';
 import {isAIMessage} from '@langchain/core/messages';
+import { withEventPersistence } from '../utils';
 
 // ===== 路由逻辑 =====
 
@@ -38,6 +39,12 @@ function shouldContinue(state: typeof ResearcherStateAnnotation.State) {
     return 'compress_research';
 }
 
+// ===== 包装节点以支持事件持久化 =====
+
+const persistingResearchLlmCall = withEventPersistence(researchLlmCall);
+const persistingResearchToolNode = withEventPersistence(researchToolNode);
+const persistingCompressResearch = withEventPersistence(compressResearch);
+
 // ===== 图构建 =====
 
 // 构建代理工作流
@@ -45,9 +52,9 @@ const graphBuilder = new StateGraph(ResearcherStateAnnotation)
 
 // 编译代理
 const compiledGraph = graphBuilder
-    .addNode('llm_call', researchLlmCall)
-    .addNode('tool_node', researchToolNode)
-    .addNode('compress_research', compressResearch)
+    .addNode('llm_call', persistingResearchLlmCall as any)
+    .addNode('tool_node', persistingResearchToolNode as any)
+    .addNode('compress_research', persistingCompressResearch as any)
     .addEdge(START, 'llm_call')
     .addConditionalEdges('llm_call', shouldContinue)
     .addEdge('tool_node', 'llm_call')

@@ -15,10 +15,12 @@ import { StateAnnotation } from '../../state';
 import { leadResearcherPrompt } from '../../prompts';
 import { getTodayStr, extractContent } from '../../utils';
 import { thinkTool, conductResearchTool, researchCompleteTool } from '../../tools';
-import { ChatEvent, GroupEvent } from '../../outputAdapters';
+import { ChatEvent, GroupEvent, BaseEvent } from '../../outputAdapters';
 import dotenv from 'dotenv';
 import {traceable} from 'langsmith/traceable';
 dotenv.config();
+
+const NODE_NAME = 'supervisor';
 
 // 配置监督器模型
 // 注意：使用 deepseek-chat 而非 deepseek-reasoner
@@ -51,13 +53,21 @@ const supervisorModelWithTools = supervisorModel.bindTools(supervisorTools);
  * 协调研究活动并决定下一步行动。
  */
 export const supervisor = traceable(async (state: typeof StateAnnotation.State, config?: LangGraphRunnableConfig) => {
+    const threadId = config?.configurable?.thread_id as string | undefined;
+    const checkpointId = config?.configurable?.checkpoint_id as string | undefined;
+    const iteration = state.research_iterations || 0;
+    
     // 检查是否已经存在 supervisor_group_id，如果存在则复用，避免重复创建
     let supervisorGroupId = state.supervisor_group_id;
     let supervisorEvent: GroupEvent | null = null;
     
     if (!supervisorGroupId) {
         // 第一次调用，创建新的 supervisor group event
-        supervisorEvent = new GroupEvent('supervisor');
+        // 使用确定性 ID
+        const groupEventId = threadId 
+            ? BaseEvent.generateDeterministicId(threadId, checkpointId, NODE_NAME, '/supervisor/group', 0)
+            : undefined;
+        supervisorEvent = new GroupEvent('supervisor', groupEventId);
         supervisorGroupId = supervisorEvent.id;
         if (config?.writer) {
             config.writer(supervisorEvent.setStatus('running').toJSON());
@@ -82,7 +92,11 @@ export const supervisor = traceable(async (state: typeof StateAnnotation.State, 
     const eventsToAdd: Record<string, unknown>[] = [];
     const textContent = extractContent(response.content);
     if (textContent && config?.writer) {
-        const chatEvent = new ChatEvent('supervisor');
+        // 使用确定性 ID，iteration 用于区分不同次调用
+        const chatEventId = threadId 
+            ? BaseEvent.generateDeterministicId(threadId, checkpointId, NODE_NAME, '/supervisor/chat', iteration)
+            : undefined;
+        const chatEvent = new ChatEvent('supervisor', chatEventId);
         chatEvent.setMessage(textContent);
         // 设置 parentId 为 supervisor GroupEvent 的 id
         chatEvent.setParentId(supervisorGroupId);

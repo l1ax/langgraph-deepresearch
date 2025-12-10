@@ -3,7 +3,7 @@ import { LangGraphRunnableConfig } from '@langchain/langgraph';
 import { isAIMessage, ToolMessage } from '@langchain/core/messages';
 import { tavilySearchTool, thinkTool } from '../../tools';
 import { ResearcherStateAnnotation } from '../../state';
-import { ToolCallEvent } from '../../outputAdapters';
+import { BaseEvent, ToolCallEvent } from '../../outputAdapters';
 import {traceable} from 'langsmith/traceable';
 
 const tools = [tavilySearchTool, thinkTool];
@@ -37,10 +37,21 @@ export const researchToolNode = traceable(async (
     ) {
         // 获取 researcher_group_id
         const researcherGroupId = state.researcher_group_id;
+        const threadId = config?.configurable?.thread_id as string | undefined;
+        const checkpointId = config?.configurable?.checkpoint_id as string | undefined;
+        const nodeName = 'researchToolNode';
 
         for (const toolCall of lastMessage.tool_calls) {
-            const event = new ToolCallEvent('researcher');
             const toolCallId = toolCall.id || '';
+            const event = new ToolCallEvent(
+                'researcher',
+                BaseEvent.generateDeterministicId(
+                    threadId,
+                    checkpointId,
+                    nodeName,
+                    `tool-call-${toolCall.name}-${toolCallId}`
+                )
+            );
             event.setToolCall(
                 toolCall.name,
                 toolCall.args,

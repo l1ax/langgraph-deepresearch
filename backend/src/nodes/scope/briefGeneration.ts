@@ -8,8 +8,10 @@ import { transformMessagesIntoResearchTopicPrompt } from '../../prompts';
 import { getTodayStr } from '../../utils';
 import { StateAnnotation } from '../../state';
 import {LangGraphRunnableConfig} from '@langchain/langgraph';
-import { BriefEvent } from '../../outputAdapters';
+import { BriefEvent, BaseEvent } from '../../outputAdapters';
 import {traceable} from 'langsmith/traceable';
+
+const NODE_NAME = 'write_research_brief';
 
 export interface ResearchQuestion {
   research_brief: string;
@@ -28,7 +30,15 @@ export const writeResearchBrief = traceable(async (
   state: typeof StateAnnotation.State,
   config: LangGraphRunnableConfig
 ) => {
-  const briefEvent = new BriefEvent();
+  const threadId = config.configurable?.thread_id as string | undefined;
+  const checkpointId = config.configurable?.checkpoint_id as string | undefined;
+  
+  // 生成确定性 ID
+  const briefEventId = threadId 
+    ? BaseEvent.generateDeterministicId(threadId, checkpointId, NODE_NAME, '/ai/brief', 0)
+    : undefined;
+  
+  const briefEvent = new BriefEvent(briefEventId);
 
   // 发送 pending 状态
   if (config.writer) {

@@ -31,6 +31,8 @@ interface IConversation {
  * Executor 类
  * 负责与后端通信、存储和处理事件
  * 通过 conversation 引用访问 client 和 threadId
+ * 
+ * 注意：事件持久化已移至 backend，在 graph 运行时自动保存到数据库
  */
 export class Executor {
   /** Conversation 引用 */
@@ -54,6 +56,7 @@ export class Executor {
 
     // 更新 executionResponse
     executionResponse.upsertEvent(event);
+
     return event;
   }
 
@@ -84,6 +87,10 @@ export class Executor {
 
   /**
    * 执行对话请求
+   * 
+   * 注意：事件持久化和 rollback 处理都在 backend 完成。
+   * Backend 会在每个节点执行前同步数据库 events 与 state.events，
+   * 自动删除来自被 rollback 的执行产生的 events。
    */
   @action.bound
   async invoke(
@@ -138,6 +145,11 @@ export class Executor {
     }
 
     return response;
+  }
+
+  /** 清理资源 */
+  dispose() {
+    // 事件持久化已移至 backend，无需在前端清理
   }
 }
 

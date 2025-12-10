@@ -13,7 +13,7 @@ import { ResearcherStateAnnotation } from '../../state';
 import { researchAgentPrompt } from '../../prompts';
 import { getTodayStr, extractContent } from '../../utils';
 import { tavilySearchTool, thinkTool } from '../../tools';
-import { ChatEvent } from '../../outputAdapters';
+import { BaseEvent, ChatEvent } from '../../outputAdapters';
 import dotenv from 'dotenv';
 import { LangGraphRunnableConfig } from '@langchain/langgraph';
 import {traceable} from 'langsmith/traceable';
@@ -48,7 +48,19 @@ export const researchLlmCall = traceable(async (
     // 如果 LLM 返回了文本内容（不是工具调用），发送 ChatEvent
     const textContent = extractContent(response.content);
     if (textContent && config.writer) {
-        const chatEvent = new ChatEvent('researcher');
+        const threadId = config?.configurable?.thread_id as string | undefined;
+        const checkpointId = config?.configurable?.checkpoint_id as string | undefined;
+        const nodeName = 'researchLlmCall';
+        
+        const chatEvent = new ChatEvent(
+            'researcher',
+            BaseEvent.generateDeterministicId(
+                threadId,
+                checkpointId,
+                nodeName,
+                `chat-${textContent.substring(0, 50)}`
+            )
+        );
         chatEvent.setMessage(textContent);
         // 设置 parentId 为 researcher GroupEvent 的 id
         const researcherGroupId = state.researcher_group_id;

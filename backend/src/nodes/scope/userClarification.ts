@@ -6,12 +6,14 @@ import { AIMessage, getBufferString } from "@langchain/core/messages";
 import { Command, LangGraphRunnableConfig } from "@langchain/langgraph";
 import { ChatDeepSeek } from '@langchain/deepseek';
 import { clarifyWithUserInstructions } from '../../prompts';
-import { getTodayStr } from '../../utils';
+import { getTodayStr, eventStore } from '../../utils';
 import { StateAnnotation } from '../../state';
-import {ClarifyEvent, ChatEvent} from '../../outputAdapters';
+import { ClarifyEvent, ChatEvent, BaseEvent } from '../../outputAdapters';
 import {traceable} from 'langsmith/traceable';
 import dotenv from 'dotenv';
 dotenv.config();
+
+const NODE_NAME = 'clarify_with_user';
 
 const deepSeekChat = new ChatDeepSeek({
     model: 'deepseek-chat',
@@ -32,19 +34,41 @@ export const clarifyWithUser = traceable(async (
   state: typeof StateAnnotation.State,
   config: LangGraphRunnableConfig
 ): Promise<Command> => {
+  const threadId = config.configurable?.thread_id as string | undefined;
+  const checkpointId = config.configurable?.checkpoint_id as string | undefined;
+  
   // 获取用户的第一条消息并包装为 ChatEvent 存储
   const eventsToAdd: Record<string, unknown>[] = [];
   const userMessage = state.messages[0];
   if (userMessage && userMessage.getType() === 'human') {
-    const userChatEvent = new ChatEvent('human');
+    // 生成确定性 ID，确保 rollback 后重新执行时 ID 保持一致
+    // 使用 index=0 确保 human chat event 排在最前面
+    const humanEventId = threadId 
+      ? BaseEvent.generateDeterministicId(threadId, checkpointId, NODE_NAME, '/human/chat', 0)
+      : undefined;
+    
+    const userChatEvent = new ChatEvent('human', humanEventId);
     userChatEvent.setMessage(userMessage.content as string);
     userChatEvent.setStatus('finished');
 
+    // 直接存储到数据库（不通过 writer，避免前端重复渲染用户消息）
+    // 使用 await 确保 human chat event 先于 clarify event 存储
+    if (threadId) {
+      await eventStore.upsertEvent(threadId, userChatEvent.toJSON()).catch(err => {
+        console.error('[clarifyWithUser] Failed to persist human chat event:', err);
+      });
+    }
+
     // 将用户消息事件存储到待添加列表
-    eventsToAdd.push(userChatEvent.toJSON());
+    eventsToAdd.push(userChatEvent.toJSON() as unknown as Record<string, unknown>);
   }
 
-  const event = new ClarifyEvent();
+  // 生成确定性 ID
+  const clarifyEventId = threadId 
+    ? BaseEvent.generateDeterministicId(threadId, checkpointId, NODE_NAME, '/ai/clarify', 0)
+    : undefined;
+  
+  const event = new ClarifyEvent(clarifyEventId);
 
   // 发送 pending 状态
   if (config.writer) {
@@ -99,7 +123,7 @@ export const clarifyWithUser = traceable(async (
     }
 
     // 将 clarify event 也存储到 state.events
-    eventsToAdd.push(event.toJSON());
+    eventsToAdd.push(event.toJSON() as unknown as Record<string, unknown>);
 
     // Route based on clarification need
     if (clarification.need_clarification) {

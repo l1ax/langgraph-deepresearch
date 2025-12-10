@@ -10,8 +10,12 @@ export class GroupEvent extends BaseEvent<GroupEvent.IContent> {
         data: null,
     };
 
-    constructor(roleName: BaseEvent.RoleName) {
-        super(BaseEvent.createEventType(roleName, 'group'));
+    /**
+     * @param roleName 角色名称
+     * @param deterministicId 可选的确定性 ID
+     */
+    constructor(roleName: BaseEvent.RoleName, deterministicId?: string) {
+        super(BaseEvent.createEventType(roleName, 'group'), deterministicId);
     }
 }
 

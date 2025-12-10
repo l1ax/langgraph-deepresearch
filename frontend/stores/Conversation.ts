@@ -1,8 +1,9 @@
 import { observable, action, computed, makeObservable, flow } from 'mobx';
-import { Client, ThreadState } from '@langchain/langgraph-sdk';
+import { Client, Config, ThreadState } from '@langchain/langgraph-sdk';
 import { AnyEvent, createEventFromData, BaseEvent, isChatEvent, ChatEvent } from './events';
 import { ExecutionResponse } from './ExecutionResponse';
 import { Executor } from './Executor';
+import { apiService, StoredEvent } from '@/services/api';
 
 /**
  * Conversation 类
@@ -32,6 +33,10 @@ export class Conversation {
 
   threadState: ThreadState<{events: Array<BaseEvent.IEventData>}> | null = null;
 
+  dispose = action(() => {
+    this.executor.dispose();
+  });
+
   getTitle = action(() => {
     if (this.title) {
       const title = this.title.slice(0, 30);
@@ -47,6 +52,7 @@ export class Conversation {
     this.title = title ?? null;
     // 创建 executor 并传入自身引用
     this.executor = new Executor(this);
+
     makeObservable(this);
   }
 
@@ -109,7 +115,6 @@ export class Conversation {
         if (isChatEvent(event) && event.roleName === 'human') {
           // 如果有待处理的 AI 事件（上一轮对话的 AI 回复），先将它们包装成 assistantElement
           if (currentExecutionResponse && currentExecutionResponse.events.length > 0) {
-            currentExecutionResponse.markCompleted();
             this.addExecutionResponse(currentExecutionResponse);
           }
 
@@ -160,22 +165,177 @@ export class Conversation {
     }
   }
 
-  @action.bound
-  restoreChatHistoryByThreadId(threadId: string) {
+  /** 将数据库存储的事件转换为 BaseEvent.IEventData 格式 */
+  private convertStoredEventToEventData(storedEvent: StoredEvent): BaseEvent.IEventData {
+    return {
+      id: storedEvent.id,
+      eventType: storedEvent.eventType as BaseEvent.EventType,
+      status: storedEvent.status as BaseEvent.EventStatus,
+      content: storedEvent.content as BaseEvent.IContent,
+      parentId: storedEvent.parentId,
+    };
+  }
+
+  /**
+   * Status 优先级：finished > error > running > pending
+   * 用于比较两个 event 的 status，选择更"完成"的那个
+   */
+  private getStatusPriority(status: string): number {
+    switch (status) {
+      case 'finished': return 4;
+      case 'error': return 3;
+      case 'running': return 2;
+      case 'pending': return 1;
+      default: return 0;
+    }
+  }
+
+  /**
+   * 合并数据库 events 和 state events
+   * 对于相同 ID 的 event，取 status 更"完成"的版本
+   */
+  private mergeEvents(
+    dbEvents: BaseEvent.IEventData[],
+    stateEvents: BaseEvent.IEventData[]
+  ): BaseEvent.IEventData[] {
+    const mergedMap = new Map<string, BaseEvent.IEventData>();
+
+    // 先加入所有 dbEvents
+    for (const event of dbEvents) {
+      mergedMap.set(event.id, event);
+    }
+
+    // 再处理 stateEvents，如果 status 更完整则替换
+    for (const stateEvent of stateEvents) {
+      const existing = mergedMap.get(stateEvent.id);
+      if (!existing) {
+        // 数据库中没有，直接添加
+        mergedMap.set(stateEvent.id, stateEvent);
+      } else {
+        // 比较 status，取更完整的
+        if (this.getStatusPriority(stateEvent.status) > this.getStatusPriority(existing.status)) {
+          mergedMap.set(stateEvent.id, stateEvent);
+        }
+      }
+    }
+
+    // 按原有顺序返回（以 dbEvents 顺序为准，新增的放最后）
+    const result: BaseEvent.IEventData[] = [];
+    const addedIds = new Set<string>();
+
+    // 先按 dbEvents 顺序添加
+    for (const event of dbEvents) {
+      const merged = mergedMap.get(event.id);
+      if (merged) {
+        result.push(merged);
+        addedIds.add(event.id);
+      }
+    }
+
+    // 再添加 stateEvents 中有但 dbEvents 中没有的
+    for (const event of stateEvents) {
+      if (!addedIds.has(event.id)) {
+        const merged = mergedMap.get(event.id);
+        if (merged) {
+          result.push(merged);
+        }
+      }
+    }
+
+    return result;
+  }
+
+  @flow.bound
+  *restoreChatHistoryByThreadId(threadId: string) {
     if (!this.client) {
       throw new Error('Client not initialized');
     }
 
-    const events = this.threadState?.values.events ?? [];
+    // 从数据库获取 events
+    let dbEvents: StoredEvent[] = [];
+    try {
+      dbEvents = yield apiService.getEventsByThread(threadId);
+    } catch (error) {
+      console.warn('[Conversation] Failed to fetch events from database:', error);
+    }
+
+    // 从 LangGraph state 获取 events
+    const stateEvents = this.threadState?.values.events ?? [];
+
+    // 转换数据库 events 为 IEventData 格式
+    const dbEventsData = dbEvents.map(e => this.convertStoredEventToEventData(e));
+
+    // 合并 events（比对 status，取更完整的版本）
+    const events = this.mergeEvents(dbEventsData, stateEvents);
+    console.log(`[Conversation] Merged events: db=${dbEvents.length}, state=${stateEvents.length}, merged=${events.length}`);
+
+    // 同步到数据库（如果有差异）
+    if (stateEvents.length > 0 && dbEvents.length > 0) {
+      try {
+        const stateEventsForSync = stateEvents.map(e => ({
+          id: e.id,
+          eventType: e.eventType as string,
+          status: e.status as string,
+          content: e.content,
+          parentId: e.parentId,
+        }));
+        const syncResult: { success: boolean; created: number; updated: number } = 
+          yield apiService.syncEventsFromState(threadId, stateEventsForSync);
+        if (syncResult.created > 0 || syncResult.updated > 0) {
+          console.log(`[Conversation] Synced to database: created=${syncResult.created}, updated=${syncResult.updated}`);
+        }
+      } catch (error) {
+        console.warn('[Conversation] Failed to sync events to database:', error);
+      }
+    } else if (dbEvents.length === 0 && stateEvents.length > 0) {
+      // 数据库没有 events，但 state 有，同步到数据库
+      try {
+        const stateEventsForSync = stateEvents.map(e => ({
+          id: e.id,
+          eventType: e.eventType as string,
+          status: e.status as string,
+          content: e.content,
+          parentId: e.parentId,
+        }));
+        yield apiService.syncEventsFromState(threadId, stateEventsForSync);
+        console.log(`[Conversation] Synced ${stateEvents.length} events from state to database`);
+      } catch (error) {
+        console.warn('[Conversation] Failed to sync events to database:', error);
+      }
+    }
   
     if (events.length > 0) {
       this.restoreFromEvents(events);
     }
 
+    // 如果有未完成的节点（用户中途退出），继续执行
     if (this.threadState?.next && this.threadState.next.length > 0) {
+      const config: Config = {
+        configurable: {
+          thread_id: this.threadId,
+        }
+      }
+
+      // 复用最后一个 assistantElement 的 executionResponse
+      // 否则创建新的 executionResponse
+      let executionResponse: ExecutionResponse;
+      const lastElement = this.elements[this.elements.length - 1];
+      
+      if (lastElement && Conversation.isAssistantElement(lastElement)) {
+        // 复用未完成的 executionResponse
+        executionResponse = lastElement.executionResponse;
+        console.log('[Conversation] Reusing existing executionResponse for continuation');
+      } else {
+        // 创建新的 executionResponse
+        executionResponse = new ExecutionResponse();
+        this.addExecutionResponse(executionResponse);
+        console.log('[Conversation] Created new executionResponse for continuation');
+      }
+
       this.executor.invoke({
         input: null,
-        executionResponse: new ExecutionResponse(),
+        executionResponse,
+        config
       });
     }
   }
