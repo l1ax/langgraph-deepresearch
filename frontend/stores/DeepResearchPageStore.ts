@@ -5,9 +5,11 @@ import { ChatEvent } from './events';
 import { ExecutionResponse } from './ExecutionResponse';
 import { apiService, type Thread } from '@/services/api';
 import { userStore } from './User';
+import dotenv from 'dotenv';
 
-// Configuration
-const API_URL = 'http://localhost:2024';
+dotenv.config();
+
+const API_URL = process.env.NEXT_PUBLIC_LANGGRAPH_API_URL;
 
 /**
  * DeepResearchPageStore
@@ -329,7 +331,7 @@ export class DeepResearchPageStore {
         elements.pop();
       }
       this.addErrorMessage(
-        '抱歉，处理您的请求时出现错误。请确保后端服务已启动 (http://localhost:2024)。'
+        '抱歉，处理您的请求时出现错误。'
       );
       this.showToast('发送消息失败', 'error');
     } finally {
