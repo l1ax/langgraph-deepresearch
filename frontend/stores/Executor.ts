@@ -97,7 +97,7 @@ export class Executor {
       executionResponse?: ExecutionResponse;
       config?: Config;
     }
-  ): Promise<ExecutionResponse> {
+  ): Promise<ExecutionResponse | undefined> {
     const { client, threadId } = this.conversation;
     const { input, executionResponse, config } = params;
     const defaultConfig: Config = {
@@ -113,36 +113,75 @@ export class Executor {
 
     this.setExecuting(true);
 
-    // 如果没有提供 executionResponse，创建新的
-    const response = executionResponse || new ExecutionResponse();
+    const currentExecutionResponse = executionResponse || new ExecutionResponse();
 
     try {
-      const stream = client.runs.stream(threadId, GRAPH_ID, {
-        input,
-        streamMode: 'custom',
-        multitaskStrategy: 'rollback',
-        durability: "sync",
-        config: {
-          ...defaultConfig,
-          ...config
-        }
-      });
+      // const stream = client.runs.stream(threadId, GRAPH_ID, {
+      //   input,
+      //   streamMode: 'custom',
+      //   multitaskStrategy: 'rollback',
+      //   durability: "sync",
+      //   config: {
+      //     ...defaultConfig,
+      //     ...config
+      //   }
+      // });
 
-      for await (const chunk of stream) {
-        this.handleChunk(chunk as StreamChunk, response);
+      // for await (const chunk of stream) {
+      //   this.handleChunk(chunk as StreamChunk, response);
+      // }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_LANGGRAPH_API_URL}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          graphId: GRAPH_ID,
+          threadId,
+          input,
+          config: {
+            ...defaultConfig,
+            ...config
+          }
+        }),
+      });
+    
+      if (!response.body) return;
+    
+      // 处理流数据的标准写法
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+    
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+    
+        // 解码数据块
+        const chunk = decoder.decode(value, { stream: true });
+        
+        const lines = chunk.split('\n\n');
+        for (const line of lines) {
+            if (line.startsWith('data: ')) {
+                const jsonStr = line.replace('data: ', '');
+                if (jsonStr) {
+                    const data = JSON.parse(jsonStr);
+                    console.log("收到流数据:", data); 
+                    this.handleChunk(data as StreamChunk, currentExecutionResponse); 
+                }
+            }
+        }
       }
 
       // 标记执行完成
-      response.markCompleted();
+      currentExecutionResponse.markCompleted();
     } catch (error) {
       console.error('Stream error:', error);
-      response.markCompleted();
+      currentExecutionResponse.markCompleted();
       throw error;
     } finally {
       this.setExecuting(false);
     }
 
-    return response;
+    return currentExecutionResponse;
   }
 
   /** 清理资源 */

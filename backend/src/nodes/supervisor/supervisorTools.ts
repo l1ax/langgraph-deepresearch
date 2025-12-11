@@ -51,7 +51,7 @@ export const supervisorTools = traceable(async (
     const toolMessages: ToolMessage[] = [];
     let allRawNotes: string[] = [];
     let shouldEnd = false;
-    const eventsToAdd: Record<string, unknown>[] = [];
+    const eventsToAdd: BaseEvent.IJsonData[] = [];
 
     // 首先检查退出标准
     const exceededIterations = researchIterations >= maxResearcherIterations;
@@ -103,7 +103,7 @@ export const supervisorTools = traceable(async (
             const event = new ToolCallEvent(
                 'supervisor',
                 BaseEvent.generateDeterministicId(
-                    threadId,
+                    threadId!,
                     checkpointId,
                     nodeName,
                     `tool-call-${toolCall.name}-${toolCallId}`
@@ -189,7 +189,7 @@ export const supervisorTools = traceable(async (
                 const groupEvent = new GroupEvent(
                     'researcher',
                     BaseEvent.generateDeterministicId(
-                        threadId,
+                        threadId!,
                         checkpointId,
                         nodeName,
                         `researcher-group-${toolCall.args.research_topic}-${index}`

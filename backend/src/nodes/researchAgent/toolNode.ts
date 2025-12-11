@@ -46,7 +46,7 @@ export const researchToolNode = traceable(async (
             const event = new ToolCallEvent(
                 'researcher',
                 BaseEvent.generateDeterministicId(
-                    threadId,
+                    threadId!,
                     checkpointId,
                     nodeName,
                     `tool-call-${toolCall.name}-${toolCallId}`

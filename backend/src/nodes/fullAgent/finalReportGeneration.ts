@@ -67,7 +67,7 @@ export const finalReportGeneration = traceable(async (
     const chatEvent = new ChatEvent(
         'ai',
         BaseEvent.generateDeterministicId(
-            threadId,
+            threadId!,
             checkpointId,
             nodeName,
             'final-report-chat'

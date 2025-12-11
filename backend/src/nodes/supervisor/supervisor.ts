@@ -89,7 +89,7 @@ export const supervisor = traceable(async (state: typeof StateAnnotation.State, 
     const response = await supervisorModelWithTools.invoke(messages, config);
 
     // 如果 LLM 返回了文本内容（不是工具调用），发送 ChatEvent
-    const eventsToAdd: Record<string, unknown>[] = [];
+    const eventsToAdd: BaseEvent.IJsonData[] = [];
     const textContent = extractContent(response.content);
     if (textContent && config?.writer) {
         // 使用确定性 ID，iteration 用于区分不同次调用

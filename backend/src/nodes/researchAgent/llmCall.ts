@@ -55,7 +55,7 @@ export const researchLlmCall = traceable(async (
         const chatEvent = new ChatEvent(
             'researcher',
             BaseEvent.generateDeterministicId(
-                threadId,
+                threadId!,
                 checkpointId,
                 nodeName,
                 `chat-${textContent.substring(0, 50)}`

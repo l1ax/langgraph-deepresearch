@@ -44,9 +44,9 @@ const graphBuilder = new StateGraph(ResearcherStateAnnotation);
 
 // 编译代理
 export const researchAgentMcpGraph = graphBuilder
-    .addNode('llm_call', researchMcpLlmCall)
-    .addNode('tool_node', researchMcpToolNode)
-    .addNode('compress_research', compressResearch)
+    .addNode('llm_call', researchMcpLlmCall as any)
+    .addNode('tool_node', researchMcpToolNode as any)
+    .addNode('compress_research', compressResearch as any)
     .addEdge(START, 'llm_call')
     .addConditionalEdges('llm_call', shouldContinue)
     .addEdge('tool_node', 'llm_call')
