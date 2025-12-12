@@ -146,7 +146,7 @@ export class Conversation {
 
       // 调用自托管 API 获取线程状态
       const response: Response = yield fetch(
-        `${process.env.NEXT_PUBLIC_LANGGRAPH_API_URL}/threads/${threadId}/state`
+        `/api/langgraph/threads/${threadId}/state`
       );
 
       if (!response.ok) {

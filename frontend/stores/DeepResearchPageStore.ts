@@ -5,11 +5,6 @@ import { ChatEvent } from './events';
 import { ExecutionResponse } from './ExecutionResponse';
 import { apiService, type Thread } from '@/services/api';
 import { userStore } from './User';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-const API_URL = process.env.NEXT_PUBLIC_LANGGRAPH_API_URL;
 
 /**
  * DeepResearchPageStore
@@ -268,7 +263,7 @@ export class DeepResearchPageStore {
         this.isCreatingConversation = true;
 
         // 调用自托管 API 创建 thread
-        const response: Response = yield fetch(`${API_URL}/threads`, {
+        const response: Response = yield fetch('/api/langgraph/threads', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ metadata: {} })

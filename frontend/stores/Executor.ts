@@ -130,7 +130,7 @@ export class Executor {
       //   this.handleChunk(chunk as StreamChunk, response);
       // }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_LANGGRAPH_API_URL}/run`, {
+      const response = await fetch('/api/langgraph/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
