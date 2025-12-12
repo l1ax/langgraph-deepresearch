@@ -43,6 +43,7 @@ jobs:
           # 如果你的地址是固定的，可以直接写在这里
           build-args: |
             NEXT_PUBLIC_LANGGRAPH_API_URL=http://${{ secrets.SERVER_HOST }}:2024
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
