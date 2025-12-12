@@ -12,6 +12,8 @@ import {
 import { ExecutionResponse } from './ExecutionResponse';
 
 const GRAPH_ID = 'fullResearchAgent';
+const LANGGRAPH_API_URL =
+  process.env.NEXT_PUBLIC_LANGGRAPH_API_URL || 'http://localhost:2024';
 
 interface StreamChunk {
   event: string;
@@ -105,7 +107,7 @@ export class Executor {
     const currentExecutionResponse = executionResponse || new ExecutionResponse();
 
     try {
-      const response = await fetch(`/api/langgraph/run`, {
+      const response = await fetch(`${LANGGRAPH_API_URL}/api/langgraph/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

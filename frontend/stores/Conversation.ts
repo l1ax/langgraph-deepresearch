@@ -5,6 +5,9 @@ import { ExecutionResponse } from './ExecutionResponse';
 import { Executor } from './Executor';
 import { apiService, StoredEvent } from '@/services/api';
 
+const LANGGRAPH_API_URL =
+  process.env.NEXT_PUBLIC_LANGGRAPH_API_URL || 'http://localhost:2024';
+
 /**
  * Conversation 类
  * 以 threadId 为唯一标识，管理一次对话中的所有 elements
@@ -144,9 +147,9 @@ export class Conversation {
     try {
       this.isLoading = true;
 
-      // 调用自托管 API 获取线程状态（通过 Next.js API 路由转发）
+      // 直接调用 LangGraph backend API 获取线程状态
       const response: Response = yield fetch(
-        `/api/langgraph/threads/${threadId}/state`
+        `${LANGGRAPH_API_URL}/api/langgraph/threads/${threadId}/state`
       );
 
       if (!response.ok) {
