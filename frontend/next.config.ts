@@ -1,8 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // 禁用 React Strict Mode 以避免双渲染等开发期行为
   reactStrictMode: false,
+  async rewrites() {
+    return [
+      {
+        source: '/api/langgraph/:path*',
+        destination: 'http://45.152.64.84:2024/:path*', 
+      },
+    ];
+  },
 };
 
 export default nextConfig;
