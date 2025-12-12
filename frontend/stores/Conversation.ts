@@ -1,5 +1,5 @@
 import { observable, action, computed, makeObservable, flow } from 'mobx';
-import { Client, Config, ThreadState } from '@langchain/langgraph-sdk';
+import { Config, ThreadState } from '@/types/langgraph';
 import { AnyEvent, createEventFromData, BaseEvent, isChatEvent, ChatEvent } from './events';
 import { ExecutionResponse } from './ExecutionResponse';
 import { Executor } from './Executor';
@@ -13,9 +13,6 @@ import { apiService, StoredEvent } from '@/services/api';
 export class Conversation {
   /** 会话唯一标识（对应 LangGraph threadId） */
   readonly threadId: string;
-
-  /** LangGraph SDK 客户端实例 */
-  @observable client: Client | null;
 
   /** Executor 实例 */
   readonly executor: Executor;
@@ -46,9 +43,8 @@ export class Conversation {
     return '新对话';
   });
 
-  constructor(threadId: string, client: Client | null, title?: string | null) {
+  constructor(threadId: string, title?: string | null) {
     this.threadId = threadId;
-    this.client = client;
     this.title = title ?? null;
     // 创建 executor 并传入自身引用
     this.executor = new Executor(this);
@@ -146,20 +142,28 @@ export class Conversation {
   @flow.bound
   *restoreBasicDataByThreadId(threadId: string) {
     try {
-      if (!this.client) {
-        throw new Error('Client not initialized');
+      this.isLoading = true;
+
+      // 调用自托管 API 获取线程状态
+      const response: Response = yield fetch(
+        `${process.env.NEXT_PUBLIC_LANGGRAPH_API_URL}/threads/${threadId}/state`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch thread state: ${response.statusText}`);
       }
 
-      this.isLoading = true;
-  
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const state: ThreadState<{events: Array<BaseEvent.IEventData>}> = yield this.client.threads.getState(threadId);
+      const state: ThreadState<{events: Array<BaseEvent.IEventData>}> = yield response.json();
 
       this.threadState = state;
 
       if (state.created_at) {
         this.createdAt = state.created_at;
       }
+    }
+    catch (error) {
+      console.error('Failed to restore basic data:', error);
+      throw error;
     }
     finally {
       this.isLoading = false;
@@ -248,10 +252,6 @@ export class Conversation {
 
   @flow.bound
   *restoreChatHistoryByThreadId(threadId: string) {
-    if (!this.client) {
-      throw new Error('Client not initialized');
-    }
-
     // 从数据库获取 events
     let dbEvents: StoredEvent[] = [];
     try {

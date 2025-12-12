@@ -1,5 +1,5 @@
 import { observable, action, flow, computed, makeObservable, flowResult, runInAction } from 'mobx';
-import { Client, Thread as LangGraphThread } from '@langchain/langgraph-sdk';
+import { Thread as LangGraphThread } from '@/types/langgraph';
 import { Conversation } from './Conversation';
 import { ChatEvent } from './events';
 import { ExecutionResponse } from './ExecutionResponse';
@@ -18,9 +18,6 @@ const API_URL = process.env.NEXT_PUBLIC_LANGGRAPH_API_URL;
 export class DeepResearchPageStore {
   /** 输入框当前值 */
   @observable inputValue: string = '';
-
-  /** LangGraph SDK 客户端实例 */
-  @observable client: Client | null = null;
 
   /** 会话列表 */
   @observable conversations: Conversation[] = [];
@@ -102,7 +99,7 @@ export class DeepResearchPageStore {
       this.conversations = [];
 
       const asyncTasks = threads.map(async (thread) => {
-        const conversation = new Conversation(thread.id, this.client, thread.title);
+        const conversation = new Conversation(thread.id, thread.title);
         this.conversations.push(conversation);
         await conversation.restoreBasicDataByThreadId(thread.id);
       });
@@ -219,9 +216,6 @@ export class DeepResearchPageStore {
     try {
       this.isInitializing = true;
 
-      // 初始化 LangGraph client
-      this.client = new Client({ apiUrl: API_URL });
-
       // 初始化用户认证状态（会触发 userChange 事件）
       yield flowResult(userStore.initialize());
 
@@ -259,7 +253,7 @@ export class DeepResearchPageStore {
   /** 提交用户消息并处理流式响应 */
   @flow.bound
   *handleSubmit() {
-    if (!this.inputValue.trim() || !this.client) return;
+    if (!this.inputValue.trim()) return;
 
     // 检查是否已登录
     if (!userStore.currentUser) {
@@ -273,14 +267,24 @@ export class DeepResearchPageStore {
       try {
         this.isCreatingConversation = true;
 
-        // 创建 LangGraph thread
-        const thread: LangGraphThread = yield this.client.threads.create();
+        // 调用自托管 API 创建 thread
+        const response: Response = yield fetch(`${API_URL}/threads`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ metadata: {} })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to create thread: ${response.statusText}`);
+        }
+
+        const thread: LangGraphThread = yield response.json();
         const threadId = thread.thread_id;
 
         // 在数据库中创建 thread 记录
         yield flowResult(apiService.createThread(userStore.currentUser.id, undefined, threadId));
 
-        conversation = new Conversation(threadId, this.client);
+        conversation = new Conversation(threadId);
         // 创建时间倒序排序
         this.conversations.unshift(conversation);
 

@@ -1,4 +1,6 @@
 import type { NextConfig } from "next";
+import dotenv from 'dotenv';
+dotenv.config();
 
 const nextConfig: NextConfig = {
   reactStrictMode: false,
@@ -6,7 +8,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/langgraph/:path*',
-        destination: 'http://45.152.64.84:2024/:path*', 
+        destination: `${process.env.NEXT_PUBLIC_LANGGRAPH_API_URL}/:path*`, 
       },
     ];
   },

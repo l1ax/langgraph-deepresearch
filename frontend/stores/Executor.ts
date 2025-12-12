@@ -1,5 +1,5 @@
 import { observable, action, makeObservable } from 'mobx';
-import { Client, Config } from '@langchain/langgraph-sdk';
+import { Config } from '@/types/langgraph';
 import {
   BaseEvent,
   AnyEvent,
@@ -24,7 +24,6 @@ interface StreamChunk {
 // 前向声明
 interface IConversation {
   readonly threadId: string;
-  readonly client: Client | null;
 }
 
 /**
@@ -98,7 +97,7 @@ export class Executor {
       config?: Config;
     }
   ): Promise<ExecutionResponse | undefined> {
-    const { client, threadId } = this.conversation;
+    const { threadId } = this.conversation;
     const { input, executionResponse, config } = params;
     const defaultConfig: Config = {
       recursion_limit: 100,
@@ -107,8 +106,8 @@ export class Executor {
       }
     }
 
-    if (!client || !threadId) {
-      throw new Error('Conversation client or threadId not initialized');
+    if (!threadId) {
+      throw new Error('Conversation threadId not initialized');
     }
 
     this.setExecuting(true);
