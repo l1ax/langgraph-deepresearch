@@ -8,6 +8,7 @@ FROM base AS deps
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml* ./
+COPY prisma ./prisma
 
 RUN pnpm install
 
