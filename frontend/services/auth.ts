@@ -16,22 +16,34 @@ class AuthService {
   private supabase = createClient();
 
   /**
-   * 使用 GitHub 登录
+   * 使用邮箱密码登录
    */
-  async signInWithGitHub() {
-    const { data, error } = await this.supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+  async signInWithPassword(email: string, password: string) {
+    const { data, error } = await this.supabase.auth.signInWithPassword({
+      email,
+      password,
     });
 
     if (error) {
-      console.error('GitHub login error:', error);
+      console.error('Email/password login error:', error);
       throw error;
     }
 
     return data;
+  }
+
+  /**
+   * 重置密码（发送重置邮件）
+   */
+  async resetPasswordForEmail(email: string) {
+    const { error } = await this.supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+
+    if (error) {
+      console.error('Password reset error:', error);
+      throw error;
+    }
   }
 
   /**
@@ -50,7 +62,7 @@ class AuthService {
    */
   async getCurrentUser(): Promise<AuthUser | null> {
     const { data: { user } } = await this.supabase.auth.getUser();
-    
+
     if (!user) return null;
 
     return this.mapSupabaseUser(user);
@@ -76,7 +88,12 @@ class AuthService {
     return {
       id: user.id,
       email: user.email || '',
-      name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+      // 优先使用 user_metadata 中的 username，否则使用 full_name/name，最后回退到邮箱前缀
+      name: user.user_metadata?.username ||
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            user.email?.split('@')[0] ||
+            null,
       avatarUrl: user.user_metadata?.avatar_url || null,
     };
   }

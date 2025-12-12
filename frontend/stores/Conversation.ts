@@ -156,10 +156,6 @@ export class Conversation {
       const state: ThreadState<{events: Array<BaseEvent.IEventData>}> = yield response.json();
 
       this.threadState = state;
-
-      if (state.created_at) {
-        this.createdAt = state.created_at;
-      }
     }
     catch (error) {
       console.error('Failed to restore basic data:', error);

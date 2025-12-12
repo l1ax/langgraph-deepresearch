@@ -23,6 +23,11 @@ if (!process.env.DATABASE_URL) {
 // 创建连接池
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    },
+    host: 'aws-1-ap-south-1.pooler.supabase.com',
+    port: 6543,
 });
 
 /**

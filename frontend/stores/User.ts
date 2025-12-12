@@ -30,14 +30,28 @@ export class UserStore {
 
   // ===== Auth 方法 =====
 
-  /** 使用 GitHub 登录 */
+  /** 使用邮箱密码登录 */
   @flow.bound
-  *signInWithGitHub(): Generator<Promise<any>, void, any> {
+  *signInWithPassword(email: string, password: string): Generator<Promise<any>, void, any> {
     try {
       this.isAuthLoading = true;
-      yield authService.signInWithGitHub();
+      yield authService.signInWithPassword(email, password);
     } catch (error) {
-      console.error('GitHub login failed:', error);
+      console.error('Email/password login failed:', error);
+      throw error;
+    } finally {
+      this.isAuthLoading = false;
+    }
+  }
+
+  /** 重置密码 */
+  @flow.bound
+  *resetPassword(email: string): Generator<Promise<any>, void, any> {
+    try {
+      this.isAuthLoading = true;
+      yield authService.resetPasswordForEmail(email);
+    } catch (error) {
+      console.error('Password reset failed:', error);
       throw error;
     } finally {
       this.isAuthLoading = false;

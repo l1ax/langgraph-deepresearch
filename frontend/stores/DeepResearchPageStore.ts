@@ -95,6 +95,7 @@ export class DeepResearchPageStore {
 
       const asyncTasks = threads.map(async (thread) => {
         const conversation = new Conversation(thread.id, thread.title);
+        conversation.createdAt = thread.createdAt;
         this.conversations.push(conversation);
         await conversation.restoreBasicDataByThreadId(thread.id);
       });
@@ -153,8 +154,19 @@ export class DeepResearchPageStore {
 
     if (conversation) {
       try {
+        // 如果当前有正在执行的会话，中止它
+        if (this.currentConversation && this.currentConversation !== conversation) {
+          console.log('[DeepResearchPageStore] Aborting previous conversation execution');
+          this.currentConversation.executor.abort();
+        }
+
         this.isHistoryLoading = true;
         this.currentConversation = conversation;
+
+        // 重新拉取最新的 state（包含 next、tasks 等信息）
+        console.log('[DeepResearchPageStore] Fetching latest state for conversation');
+        yield flowResult(conversation.restoreBasicDataByThreadId(threadId));
+
         // 使用 yield 处理异步操作，确保 loading 状态持续到加载完成
         yield flowResult(conversation.restoreChatHistoryByThreadId(threadId));
       } catch (error) {
@@ -169,6 +181,12 @@ export class DeepResearchPageStore {
   /** 创建新对话入口：重置当前会话，回到欢迎页 */
   @action.bound
   createNewConversation() {
+    // 如果当前有正在执行的会话，中止它
+    if (this.currentConversation) {
+      console.log('[DeepResearchPageStore] Aborting current conversation for new conversation');
+      this.currentConversation.executor.abort();
+    }
+
     this.currentConversation = null;
     this.clearInput();
   }
@@ -276,8 +294,9 @@ export class DeepResearchPageStore {
         const thread: LangGraphThread = yield response.json();
         const threadId = thread.thread_id;
 
+        const title = this.inputValue.slice(0, 100);
         // 在数据库中创建 thread 记录
-        yield flowResult(apiService.createThread(userStore.currentUser.id, undefined, threadId));
+        yield flowResult(apiService.createThread(userStore.currentUser.id, title, threadId));
 
         conversation = new Conversation(threadId);
         // 创建时间倒序排序

@@ -100,8 +100,7 @@ apiRouter.post('/run', async (req: express.Request<{}, {}, IRunRequestBody>, res
             ...config,
             configurable: {
                 ...config.configurable,
-                thread_id: threadId,
-                threadId: threadId,
+                thread_id: threadId
             },
             writer: writer,
         };
@@ -133,7 +132,7 @@ apiRouter.get('/threads/:threadId/state', async (req: express.Request<{threadId:
         const {threadId} = req.params;
         const threadState = await fullAgentGraph.getState({
             configurable: {
-                threadId
+                thread_id: threadId
             }
         });
         res.json(threadState);

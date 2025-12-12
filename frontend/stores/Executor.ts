@@ -38,9 +38,23 @@ export class Executor {
   /** 是否正在执行请求 */
   @observable isExecuting: boolean = false;
 
+  /** 当前请求的 AbortController */
+  private currentAbortController: AbortController | null = null;
+
   constructor(conversation: IConversation) {
     this.conversation = conversation;
     makeObservable(this);
+  }
+
+  /** 中止当前正在执行的请求 */
+  @action.bound
+  abort() {
+    if (this.currentAbortController) {
+      console.log('[Executor] Aborting current execution');
+      this.currentAbortController.abort();
+      this.currentAbortController = null;
+      this.setExecuting(false);
+    }
   }
 
   /** 根据 id 更新已存在的事件，如果不存在则添加 */
@@ -110,6 +124,13 @@ export class Executor {
       throw new Error('Conversation threadId not initialized');
     }
 
+    // 如果有正在执行的请求，先中止
+    if (this.currentAbortController) {
+      this.currentAbortController.abort();
+    }
+
+    // 创建新的 AbortController
+    this.currentAbortController = new AbortController();
     this.setExecuting(true);
 
     const currentExecutionResponse = executionResponse || new ExecutionResponse();
@@ -143,6 +164,7 @@ export class Executor {
             ...config
           }
         }),
+        signal: this.currentAbortController.signal, // 添加 abort signal
       });
     
       if (!response.body) return;
@@ -174,11 +196,19 @@ export class Executor {
       // 标记执行完成
       currentExecutionResponse.markCompleted();
     } catch (error) {
+      // 检查是否是用户主动取消
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('[Executor] Request was aborted by user');
+        currentExecutionResponse.markCompleted();
+        return currentExecutionResponse;
+      }
+
       console.error('Stream error:', error);
       currentExecutionResponse.markCompleted();
       throw error;
     } finally {
       this.setExecuting(false);
+      this.currentAbortController = null;
     }
 
     return currentExecutionResponse;

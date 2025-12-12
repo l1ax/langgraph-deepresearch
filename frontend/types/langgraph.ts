@@ -24,7 +24,7 @@ export interface Thread {
 export interface ThreadState<T = any> {
   values: T;
   next: string[];
-  created_at?: string;
+  createdAt?: string;
   metadata?: Record<string, any>;
 }
 

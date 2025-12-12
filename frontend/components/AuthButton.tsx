@@ -4,11 +4,10 @@ import React from 'react';
 import { observer } from 'mobx-react-lite';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LogIn, LogOut, User, Github, Loader2 } from 'lucide-react';
+import { LogOut, User, Loader2 } from 'lucide-react';
 import { userStore } from '@/stores/User';
 import { DeepResearchPageStore } from '@/stores';
 import { cn } from '@/lib/utils';
-import {flowResult} from 'mobx';
 
 interface AuthButtonProps {
   store: DeepResearchPageStore;
@@ -17,14 +16,6 @@ interface AuthButtonProps {
 
 export const AuthButton = observer(({ store, variant = 'default' }: AuthButtonProps) => {
   const { currentUser, isAuthLoading } = userStore;
-
-  const handleSignIn = async () => {
-    try {
-      await flowResult(userStore.signInWithGitHub());
-    } catch (error) {
-      store.showToast('GitHub 登录失败，请重试', 'error');
-    }
-  };
 
   const handleSignOut = async () => {
     try {
@@ -44,21 +35,9 @@ export const AuthButton = observer(({ store, variant = 'default' }: AuthButtonPr
     );
   }
 
+  // 未登录状态 - 不显示任何按钮（登录由 LoginForm 处理）
   if (!currentUser) {
-    return (
-      <Button
-        onClick={handleSignIn}
-        variant={variant === 'sidebar' ? 'outline' : 'default'}
-        size="sm"
-        className={cn(
-          'gap-2',
-          variant === 'sidebar' && 'w-full justify-start'
-        )}
-      >
-        <Github className="h-4 w-4" />
-        <span>使用 GitHub 登录</span>
-      </Button>
-    );
+    return null;
   }
 
   // 已登录状态

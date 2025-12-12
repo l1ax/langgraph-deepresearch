@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
-import { User, Bot, Sparkles, Menu, Github } from 'lucide-react';
+import { User, Bot, Sparkles, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -21,6 +21,7 @@ import { ConversationComposer } from '@/components/ConversationComposer';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ToastContainer } from '@/components/Toast';
 import { AuthButton } from '@/components/AuthButton';
+import { LoginForm } from '@/components/LoginForm';
 import { flowResult } from 'mobx';
 
 // 按 subType 注册渲染器
@@ -129,14 +130,6 @@ const LoadingIndicator = observer(() => (
 
 /** 登录提示组件 */
 const LoginPrompt = observer<{ store: DeepResearchPageStore }>(({ store }) => {
-  const handleSignIn = async () => {
-    try {
-      await flowResult(userStore.signInWithGitHub());
-    } catch (error) {
-      store.showToast('GitHub 登录失败，请重试', 'error');
-    }
-  };
-
   return (
     <div className="flex flex-col items-center justify-center space-y-6 py-12">
       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
@@ -145,20 +138,12 @@ const LoginPrompt = observer<{ store: DeepResearchPageStore }>(({ store }) => {
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-semibold text-foreground">欢迎使用 DeepResearch</h2>
         <p className="text-muted-foreground max-w-md">
-          使用 GitHub 账号登录后，即可开始深度研究之旅。
+          登录后即可开始深度研究之旅。
           <br />
           您的对话历史将被安全保存。
         </p>
       </div>
-      <Button
-        onClick={handleSignIn}
-        disabled={userStore.isAuthLoading}
-        size="lg"
-        className="gap-2 bg-foreground text-background hover:bg-foreground/90"
-      >
-        <Github className="h-5 w-5" />
-        使用 GitHub 登录
-      </Button>
+      <LoginForm store={store} />
     </div>
   );
 });
