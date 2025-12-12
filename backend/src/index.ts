@@ -33,12 +33,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// 健康检查路由（不带前缀）
 // @ts-expect-error
 app.get("/health", (req, res) => {
     res.send("LangGraph Backend is running!");
 });
 
-app.post('/threads', (req: express.Request<{}, {}, ICreateThreadBody>, res: express.Response) => {
+// 创建带有 /api/langgraph 前缀的路由
+const apiRouter = express.Router();
+
+apiRouter.post('/threads', (req: express.Request<{}, {}, ICreateThreadBody>, res: express.Response) => {
     try {
         const { metadata } = req.body;
         const threadId = randomUUID();
@@ -56,7 +60,7 @@ app.post('/threads', (req: express.Request<{}, {}, ICreateThreadBody>, res: expr
 });
 
 // @ts-expect-error
-app.post('/run', async (req: express.Request<{}, {}, IRunRequestBody>, res: express.Response) => {
+apiRouter.post('/run', async (req: express.Request<{}, {}, IRunRequestBody>, res: express.Response) => {
     try {
         console.log(req.body);
         const {graphId, threadId, input, config = {}} = req.body;
@@ -124,7 +128,7 @@ app.post('/run', async (req: express.Request<{}, {}, IRunRequestBody>, res: expr
     }
 });
 
-app.get('/threads/:threadId/state', async (req: express.Request<{threadId: string}>, res: express.Response) => {
+apiRouter.get('/threads/:threadId/state', async (req: express.Request<{threadId: string}>, res: express.Response) => {
     try {
         const {threadId} = req.params;
         const threadState = await fullAgentGraph.getState({
@@ -137,6 +141,9 @@ app.get('/threads/:threadId/state', async (req: express.Request<{threadId: strin
         res.status(500).json({ error: "Internal server error" + error });
     }
 });
+
+// 挂载路由到 /api/langgraph
+app.use('/api/langgraph', apiRouter);
 
 // 启动服务器前初始化数据库
 async function startServer() {
