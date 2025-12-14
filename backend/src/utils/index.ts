@@ -3,7 +3,6 @@
  */
 
 export { checkpointer, initCheckpointer } from './checkpointer';
-export { withPersistingWriter, withEventPersistence } from './persistingWriter';
 export * as eventStore from './eventStore';
 
 /**

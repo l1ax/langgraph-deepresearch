@@ -283,11 +283,17 @@ export class DeepResearchPageStore {
       try {
         this.isCreatingConversation = true;
 
-        // 直接调用 LangGraph backend API 创建 thread
-        const response: Response = yield fetch(`${LANGGRAPH_API_URL}/api/langgraph/threads`, {
+        const title = this.inputValue.slice(0, 100);
+        
+        // 创建 thread，同时传递 userId 和 title，proxy 会自动写入数据库
+        const response: Response = yield fetch(`${LANGGRAPH_API_URL}/threads`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ metadata: {} })
+          body: JSON.stringify({ 
+            metadata: {},
+            userId: userStore.currentUser.id,
+            title: title
+          })
         });
 
         if (!response.ok) {
@@ -297,11 +303,7 @@ export class DeepResearchPageStore {
         const thread: LangGraphThread = yield response.json();
         const threadId = thread.thread_id;
 
-        const title = this.inputValue.slice(0, 100);
-        // 在数据库中创建 thread 记录
-        yield flowResult(apiService.createThread(userStore.currentUser.id, title, threadId));
-
-        conversation = new Conversation(threadId);
+        conversation = new Conversation(threadId, title);
         // 创建时间倒序排序
         this.conversations.unshift(conversation);
 

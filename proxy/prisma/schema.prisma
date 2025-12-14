@@ -6,6 +6,13 @@ datasource db {
   provider = "postgresql"
 }
 
+// ============================================
+// 应用层数据模型
+// ============================================
+// 注意：Checkpoint 相关表由 LangGraph PostgresSaver 自动管理
+// 不应在此 schema 中定义，避免与 LangGraph 的 migration 冲突
+// ============================================
+
 model User {
   id        String   @id
   email     String   @unique // 用于登录的唯一邮箱
@@ -29,8 +36,9 @@ model Thread {
 }
 
 /// Event 模型 - 存储会话中的事件数据
-/// 用于在节点运行完成前持久化事件，防止用户中途退出导致数据丢失
-/// 注意：不使用外键约束，因为 Event 可能在 Thread 创建之前被保存（backend 先于 frontend 保存）
+/// 由 Proxy 在 SSE 流转发时自动持久化
+/// 用于恢复历史对话和未完成的执行
+/// 注意：不使用外键约束，因为 Event 可能在 Thread 创建之前被保存
 model Event {
   /// 事件唯一标识（使用后端生成的 event id）
   id        String   @id
@@ -55,42 +63,3 @@ model Event {
   @@index([threadId, sequence])
 }
 
-model checkpoint_blobs {
-  thread_id     String
-  checkpoint_ns String @default("")
-  channel       String
-  version       String
-  type          String
-  blob          Bytes?
-
-  @@id([thread_id, checkpoint_ns, channel, version])
-}
-
-model checkpoint_migrations {
-  v Int @id
-}
-
-model checkpoint_writes {
-  thread_id     String
-  checkpoint_ns String  @default("")
-  checkpoint_id String
-  task_id       String
-  idx           Int
-  channel       String
-  type          String?
-  blob          Bytes
-
-  @@id([thread_id, checkpoint_ns, checkpoint_id, task_id, idx])
-}
-
-model checkpoints {
-  thread_id            String
-  checkpoint_ns        String  @default("")
-  checkpoint_id        String
-  parent_checkpoint_id String?
-  type                 String?
-  checkpoint           Json
-  metadata             Json    @default("{}")
-
-  @@id([thread_id, checkpoint_ns, checkpoint_id])
-}

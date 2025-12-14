@@ -4,8 +4,8 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
+    "dev": "langgraphjs dev --port 8000",
+    "start": "echo 'Use Docker to run Agent Server'",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist",
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -28,9 +28,7 @@
     "@langchain/mcp-adapters": "^1.0.0",
     "@langchain/openai": "^1.1.2",
     "@tavily/core": "^0.5.13",
-    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
-    "express": "^5.2.1",
     "langsmith": "^0.3.80",
     "openai": "^6.9.1",
     "pg": "^8.14.1",
@@ -38,8 +36,7 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
+    "@langchain/langgraph-cli": "^1.1.2",
     "@types/node": "^24.10.1",
     "@types/pg": "^8.11.10",
     "@types/uuid": "^10.0.0",

@@ -1,22 +1,95 @@
-version: '3.8'
+
+volumes:
+  langgraph-redis-data:
+    driver: local
 
 services:
-  backend:
-    image: chrisc2c/my-backend:latest
-    ports:
-      - "2024:2024"
-    env_file:
-      - ./backend/.env.production
+  # Redis 服务
+  langgraph-redis:
+    image: redis:7-alpine
+    container_name: langgraph-redis
+    expose:
+      - "6379"
+    volumes:
+      - langgraph-redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
     networks:
       - app-network
 
+  # LangGraph Agent Server (内部服务，不对外暴露)
+  langgraph-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: langgraph-deepresearch-backend:latest
+    container_name: langgraph-api
+    expose:
+      - "8000"  # 仅内部网络可访问
+    env_file:
+      - ./backend/.env.production
+    environment:
+      REDIS_URI: redis://langgraph-redis:6379
+    depends_on:
+      langgraph-redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Express Proxy (对外服务)
+  langgraph-proxy:
+    build:
+      context: ./proxy
+      dockerfile: Dockerfile
+    image: langgraph-proxy:latest
+    container_name: langgraph-proxy
+    ports:
+      - "2024:2024"  # 对外暴露 2024 端口
+    env_file:
+      - ./proxy/.env.production
+    depends_on:
+      langgraph-api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:2024/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Frontend
   frontend:
-    image: chrisc2c/my-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_LANGGRAPH_API_URL: ${NEXT_PUBLIC_LANGGRAPH_API_URL:-}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+    image: langgraph-frontend:latest
+    container_name: frontend
     ports:
       - "80:3000"
     env_file:
       - ./frontend/.env.production
+    depends_on:
+      langgraph-proxy:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - app-network

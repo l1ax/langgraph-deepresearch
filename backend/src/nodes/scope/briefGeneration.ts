@@ -10,6 +10,9 @@ import { StateAnnotation } from '../../state';
 import {LangGraphRunnableConfig} from '@langchain/langgraph';
 import { BriefEvent, BaseEvent } from '../../outputAdapters';
 import {traceable} from 'langsmith/traceable';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const NODE_NAME = 'write_research_brief';
 

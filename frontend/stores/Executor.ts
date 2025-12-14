@@ -1,25 +1,16 @@
 import { observable, action, makeObservable } from 'mobx';
+import { Client } from '@langchain/langgraph-sdk';
 import { Config } from '@/types/langgraph';
 import {
   BaseEvent,
   AnyEvent,
   createEventFromData,
-  ClarifyEvent,
-  BriefEvent,
-  ChatEvent,
-  ToolCallEvent,
 } from './events';
 import { ExecutionResponse } from './ExecutionResponse';
 
-const GRAPH_ID = 'scopeAgent';
+const DEFAULT_GRAPH_ID = 'fullResearchAgent';
 const LANGGRAPH_API_URL =
   process.env.NEXT_PUBLIC_LANGGRAPH_API_URL || 'http://localhost:2024';
-
-interface StreamChunk {
-  event: string;
-  id: string;
-  data: unknown;
-}
 
 interface IConversation {
   readonly threadId: string;
@@ -27,12 +18,14 @@ interface IConversation {
 
 export class Executor {
   private readonly conversation: IConversation;
+  private readonly client: Client;
 
   @observable isExecuting: boolean = false;
   private currentAbortController: AbortController | null = null;
 
-  constructor(conversation: IConversation) {
+  constructor(conversation: IConversation, client: Client) {
     this.conversation = conversation;
+    this.client = client;
     makeObservable(this);
   }
 
@@ -56,17 +49,17 @@ export class Executor {
   }
 
   @action.bound
-  private handleChunk(
-    chunk: StreamChunk,
+  private handleCustomChunk(
+    chunk: any,
     executionResponse: ExecutionResponse
   ): AnyEvent | null {
-    if (chunk.event === 'custom' && chunk.data) {
-      console.log('chunk.data', chunk.data);
-      const data = chunk.data as BaseEvent.IEventData<unknown>;
-      if (data.eventType && data.id) {
-        data.status = data.status || 'finished';
-        return this.upsertEvent(data, executionResponse);
-      }
+    console.log(chunk)
+    // Proxy 直接转发 Agent Server 的原始 chunk
+    // chunk.data 就是 config.writer() 发送的数据
+    const data = chunk.data as BaseEvent.IEventData<unknown>;
+    if (data?.eventType && data?.id) {
+      data.status = data.status || 'finished';
+      return this.upsertEvent(data, executionResponse);
     }
     return null;
   }
@@ -77,21 +70,14 @@ export class Executor {
   }
 
   @action.bound
-  async invoke(
-    params: {
-      input: Record<string, unknown> | null;
-      executionResponse?: ExecutionResponse;
-      config?: Config;
-    }
-  ): Promise<ExecutionResponse | undefined> {
+  async invoke(params: {
+    input: Record<string, unknown> | null;
+    executionResponse?: ExecutionResponse;
+    config?: Config;
+    graphId?: string;
+  }): Promise<ExecutionResponse | undefined> {
     const { threadId } = this.conversation;
-    const { input, executionResponse, config } = params;
-    const defaultConfig: Config = {
-      recursion_limit: 100,
-      configurable: {
-        thread_id: threadId
-      }
-    }
+    const { input, executionResponse, config, graphId = DEFAULT_GRAPH_ID } = params;
 
     if (!threadId) {
       throw new Error('Conversation threadId not initialized');
@@ -101,74 +87,35 @@ export class Executor {
       this.currentAbortController.abort();
     }
 
+    const defaultConfig: Config = {
+      recursion_limit: 100,
+      configurable: {
+        thread_id: threadId
+      }
+    }
+
     this.currentAbortController = new AbortController();
     this.setExecuting(true);
 
     const currentExecutionResponse = executionResponse || new ExecutionResponse();
 
     try {
-      const response = await fetch(`${LANGGRAPH_API_URL}/api/langgraph/run`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          graphId: GRAPH_ID,
-          threadId,
-          input,
-          config: {
-            ...defaultConfig,
-            ...config
-          }
-        }),
-        signal: this.currentAbortController.signal,
-      });
-
-      if (!response.body) return;
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() || '';
-
-        for (const part of parts) {
-          const lines = part.split('\n');
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const jsonStr = line.replace('data: ', '').trim();
-              if (jsonStr) {
-                try {
-                  const data = JSON.parse(jsonStr);
-                  this.handleChunk(data as StreamChunk, currentExecutionResponse);
-                } catch (error) {
-                  console.error('JSON parse error:', error);
-                }
-              }
-            }
-          }
+      // 使用 LangGraph SDK 的 runs.stream
+      // Proxy 会拦截并持久化事件
+      const streamResponse = this.client.runs.stream(
+        threadId,
+        graphId,
+        {
+          input: input || {},
+          streamMode: "custom",
+          config: { ...defaultConfig, ...config },
+          signal: this.currentAbortController.signal,
         }
-      }
+      );
 
-      if (buffer.trim()) {
-        const lines = buffer.split('\n');
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const jsonStr = line.replace('data: ', '').trim();
-            if (jsonStr) {
-              try {
-                const data = JSON.parse(jsonStr);
-                this.handleChunk(data as StreamChunk, currentExecutionResponse);
-              } catch (error) {
-                console.error('JSON parse error:', error);
-              }
-            }
-          }
-        }
+      // 遍历流式响应
+      for await (const chunk of streamResponse) {
+        this.handleCustomChunk(chunk, currentExecutionResponse);
       }
 
       currentExecutionResponse.markCompleted();
@@ -189,7 +136,61 @@ export class Executor {
     return currentExecutionResponse;
   }
 
-  dispose() {}
+  /**
+   * 恢复未完成的 run
+   */
+  @action.bound
+  async joinExistingRun(
+    runId: string,
+    graphId: string,
+    executionResponse?: ExecutionResponse
+  ): Promise<ExecutionResponse | undefined> {
+    const { threadId } = this.conversation;
+
+    if (!threadId) {
+      throw new Error('Conversation threadId not initialized');
+    }
+
+    if (this.currentAbortController) {
+      this.currentAbortController.abort();
+    }
+
+    this.currentAbortController = new AbortController();
+    this.setExecuting(true);
+
+    const currentExecutionResponse = executionResponse || new ExecutionResponse();
+
+    try {
+      console.log(`[Executor] Joining run ${runId} for thread ${threadId}`);
+
+      // 使用 joinStream 恢复
+      const streamResponse = this.client.runs.joinStream(threadId, runId);
+
+      for await (const chunk of streamResponse) {
+        this.handleCustomChunk(chunk, currentExecutionResponse);
+      }
+
+      currentExecutionResponse.markCompleted();
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        currentExecutionResponse.markCompleted();
+        return currentExecutionResponse;
+      }
+
+      console.error('Join stream error:', error);
+      currentExecutionResponse.markCompleted();
+      throw error;
+    } finally {
+      this.setExecuting(false);
+      this.currentAbortController = null;
+    }
+
+    return currentExecutionResponse;
+  }
+
+  dispose() {
+    this.abort();
+  }
 }
 
 export namespace Executor {
@@ -198,10 +199,10 @@ export namespace Executor {
   export type EventType = BaseEvent.EventType;
   export type EventStatus = BaseEvent.EventStatus;
 
-  export type ClarifyEventData = ClarifyEvent.IData;
-  export type BriefEventData = BriefEvent.IData;
-  export type ChatEventData = ChatEvent.IData;
-  export type ToolCallEventData = ToolCallEvent.IData;
+  export type ClarifyEventData = BaseEvent.IEventData<unknown>;
+  export type BriefEventData = BaseEvent.IEventData<unknown>;
+  export type ChatEventData = BaseEvent.IEventData<unknown>;
+  export type ToolCallEventData = BaseEvent.IEventData<unknown>;
 
   export const parseEventType = BaseEvent.parseEventType;
   export const createEventType = BaseEvent.createEventType;

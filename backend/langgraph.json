@@ -1,9 +1,13 @@
 {
+    "node_version": "20",
+    "dependencies": ["."],
     "graphs": {
         "scopeAgent": "./src/graph/scopeGraph.ts:scopeAgentGraph",
         "researchAgent": "./src/graph/researchAgentGraph.ts:researchAgentGraph",
         "researchAgentMcp": "./src/graph/researchAgentMcpGraph.ts:researchAgentMcpGraph",
         "supervisorAgent": "./src/graph/supervisorGraph.ts:supervisorGraph",
         "fullResearchAgent": "./src/graph/fullAgentGraph.ts:fullAgentGraph"
-    }
+    },
+    "env": ".env.production",
+    "port": 8000
 }

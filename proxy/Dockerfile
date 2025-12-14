@@ -1,0 +1,26 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+RUN npm install -g pnpm
+
+COPY package.json pnpm-lock.yaml* ./
+
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
+ARG AGENT_SERVER_URL
+ENV AGENT_SERVER_URL=${AGENT_SERVER_URL}
+ARG PORT
+ENV PORT=${PORT}
+ARG NODE_ENV
+ENV NODE_ENV=${NODE_ENV}
+ARG DIRECT_URL
+ENV DIRECT_URL=${DIRECT_URL}
+
+COPY . .
+
+RUN pnpm build
+
+EXPOSE 2024
+
+CMD ["pnpm", "start"]

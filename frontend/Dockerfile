@@ -22,10 +22,6 @@ RUN apt-get update && apt-get install -y \
 # 复制包管理文件
 COPY package.json pnpm-lock.yaml* ./
 
-# 🔥 关键修复 2：提前复制 Prisma Schema
-# 必须在 pnpm install 之前复制，否则 postinstall 脚本找不到 schema 会报错
-COPY prisma ./prisma
-
 # 安装依赖
 # --unsafe-perm: 防止 root 用户权限问题
 # --no-optional: 跳过不兼容的可选依赖
@@ -41,15 +37,11 @@ COPY . .
 
 ARG NEXT_PUBLIC_LANGGRAPH_API_URL
 ENV NEXT_PUBLIC_LANGGRAPH_API_URL=${NEXT_PUBLIC_LANGGRAPH_API_URL}
-ARG DATABASE_URL
-ENV DATABASE_URL=${DATABASE_URL}
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
 ARG NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
 
-# 再次生成 Prisma Client (双重保险)
-RUN npx prisma generate
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 # 🔥 构建项目 (需要服务器开启 Swap，或者在 GitHub Actions 里跑)
 RUN pnpm run build
@@ -87,5 +79,4 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-# 启动命令 (这回肯定能找到 server.js 了)
 CMD ["node", "server.js"]

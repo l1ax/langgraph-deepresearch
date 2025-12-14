@@ -1,17 +1,6 @@
-FROM node:20
-
-WORKDIR /app
-
-RUN npm install -g pnpm
-
-COPY package.json pnpm-lock.yaml* package-lock.json* ./
-
-RUN pnpm install
-
-COPY . .
-
-RUN npm run build
-
-EXPOSE 2024
-
-CMD ["npm", "run", "start"]
+FROM langchain/langgraphjs-api:20
+ADD . /deps/backend
+ENV LANGSERVE_GRAPHS='{"scopeAgent":"./src/graph/scopeGraph.ts:scopeAgentGraph","researchAgent":"./src/graph/researchAgentGraph.ts:researchAgentGraph","researchAgentMcp":"./src/graph/researchAgentMcpGraph.ts:researchAgentMcpGraph","supervisorAgent":"./src/graph/supervisorGraph.ts:supervisorGraph","fullResearchAgent":"./src/graph/fullAgentGraph.ts:fullAgentGraph"}'
+WORKDIR /deps/backend
+RUN pnpm i --frozen-lockfile
+RUN (test ! -f /api/langgraph_api/js/build.mts && echo "Prebuild script not found, skipping") || tsx /api/langgraph_api/js/build.mts

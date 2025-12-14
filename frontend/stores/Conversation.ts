@@ -4,6 +4,7 @@ import { AnyEvent, createEventFromData, BaseEvent, isChatEvent, ChatEvent } from
 import { ExecutionResponse } from './ExecutionResponse';
 import { Executor } from './Executor';
 import { apiService, StoredEvent } from '@/services/api';
+import {Client, Run} from '@langchain/langgraph-sdk';
 
 const LANGGRAPH_API_URL =
   process.env.NEXT_PUBLIC_LANGGRAPH_API_URL || 'http://localhost:2024';
@@ -31,6 +32,8 @@ export class Conversation {
   @observable
   createdAt: string = new Date().toISOString();
 
+  client: Client = new Client({ apiUrl: LANGGRAPH_API_URL });
+
   threadState: ThreadState<{events: Array<BaseEvent.IEventData>}> | null = null;
 
   dispose = action(() => {
@@ -50,7 +53,7 @@ export class Conversation {
     this.threadId = threadId;
     this.title = title ?? null;
     // 创建 executor 并传入自身引用
-    this.executor = new Executor(this);
+    this.executor = new Executor(this, this.client);
 
     makeObservable(this);
   }
@@ -148,15 +151,7 @@ export class Conversation {
       this.isLoading = true;
 
       // 直接调用 LangGraph backend API 获取线程状态
-      const response: Response = yield fetch(
-        `${LANGGRAPH_API_URL}/api/langgraph/threads/${threadId}/state`
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch thread state: ${response.statusText}`);
-      }
-
-      const state: ThreadState<{events: Array<BaseEvent.IEventData>}> = yield response.json();
+      const state: ThreadState<{events: Array<BaseEvent.IEventData>}> = yield this.client.threads.getState(threadId);
 
       this.threadState = state;
     }
@@ -180,78 +175,9 @@ export class Conversation {
     };
   }
 
-  /**
-   * Status 优先级：finished > error > running > pending
-   * 用于比较两个 event 的 status，选择更"完成"的那个
-   */
-  private getStatusPriority(status: string): number {
-    switch (status) {
-      case 'finished': return 4;
-      case 'error': return 3;
-      case 'running': return 2;
-      case 'pending': return 1;
-      default: return 0;
-    }
-  }
-
-  /**
-   * 合并数据库 events 和 state events
-   * 对于相同 ID 的 event，取 status 更"完成"的版本
-   */
-  private mergeEvents(
-    dbEvents: BaseEvent.IEventData[],
-    stateEvents: BaseEvent.IEventData[]
-  ): BaseEvent.IEventData[] {
-    const mergedMap = new Map<string, BaseEvent.IEventData>();
-
-    // 先加入所有 dbEvents
-    for (const event of dbEvents) {
-      mergedMap.set(event.id, event);
-    }
-
-    // 再处理 stateEvents，如果 status 更完整则替换
-    for (const stateEvent of stateEvents) {
-      const existing = mergedMap.get(stateEvent.id);
-      if (!existing) {
-        // 数据库中没有，直接添加
-        mergedMap.set(stateEvent.id, stateEvent);
-      } else {
-        // 比较 status，取更完整的
-        if (this.getStatusPriority(stateEvent.status) > this.getStatusPriority(existing.status)) {
-          mergedMap.set(stateEvent.id, stateEvent);
-        }
-      }
-    }
-
-    // 按原有顺序返回（以 dbEvents 顺序为准，新增的放最后）
-    const result: BaseEvent.IEventData[] = [];
-    const addedIds = new Set<string>();
-
-    // 先按 dbEvents 顺序添加
-    for (const event of dbEvents) {
-      const merged = mergedMap.get(event.id);
-      if (merged) {
-        result.push(merged);
-        addedIds.add(event.id);
-      }
-    }
-
-    // 再添加 stateEvents 中有但 dbEvents 中没有的
-    for (const event of stateEvents) {
-      if (!addedIds.has(event.id)) {
-        const merged = mergedMap.get(event.id);
-        if (merged) {
-          result.push(merged);
-        }
-      }
-    }
-
-    return result;
-  }
-
   @flow.bound
   *restoreChatHistoryByThreadId(threadId: string) {
-    // 从数据库获取 events
+    // 从数据库获取 events（Proxy 已自动持久化）
     let dbEvents: StoredEvent[] = [];
     try {
       dbEvents = yield apiService.getEventsByThread(threadId);
@@ -259,84 +185,48 @@ export class Conversation {
       console.warn('[Conversation] Failed to fetch events from database:', error);
     }
 
-    // 从 LangGraph state 获取 events
-    const stateEvents = this.threadState?.values.events ?? [];
-
     // 转换数据库 events 为 IEventData 格式
-    const dbEventsData = dbEvents.map(e => this.convertStoredEventToEventData(e));
+    const events = dbEvents.map(e => this.convertStoredEventToEventData(e));
+    console.log(`[Conversation] Loaded events from database: ${events.length}`);
 
-    // 合并 events（比对 status，取更完整的版本）
-    const events = this.mergeEvents(dbEventsData, stateEvents);
-    console.log(`[Conversation] Merged events: db=${dbEvents.length}, state=${stateEvents.length}, merged=${events.length}`);
-
-    // 同步到数据库（如果有差异）
-    if (stateEvents.length > 0 && dbEvents.length > 0) {
-      try {
-        const stateEventsForSync = stateEvents.map(e => ({
-          id: e.id,
-          eventType: e.eventType as string,
-          status: e.status as string,
-          content: e.content,
-          parentId: e.parentId,
-        }));
-        const syncResult: { success: boolean; created: number; updated: number } = 
-          yield apiService.syncEventsFromState(threadId, stateEventsForSync);
-        if (syncResult.created > 0 || syncResult.updated > 0) {
-          console.log(`[Conversation] Synced to database: created=${syncResult.created}, updated=${syncResult.updated}`);
-        }
-      } catch (error) {
-        console.warn('[Conversation] Failed to sync events to database:', error);
-      }
-    } else if (dbEvents.length === 0 && stateEvents.length > 0) {
-      // 数据库没有 events，但 state 有，同步到数据库
-      try {
-        const stateEventsForSync = stateEvents.map(e => ({
-          id: e.id,
-          eventType: e.eventType as string,
-          status: e.status as string,
-          content: e.content,
-          parentId: e.parentId,
-        }));
-        yield apiService.syncEventsFromState(threadId, stateEventsForSync);
-        console.log(`[Conversation] Synced ${stateEvents.length} events from state to database`);
-      } catch (error) {
-        console.warn('[Conversation] Failed to sync events to database:', error);
-      }
-    }
-  
     if (events.length > 0) {
       this.restoreFromEvents(events);
     }
 
-    // 如果有未完成的节点（用户中途退出），继续执行
+    // 如果有未完成的节点（用户中途退出），检查是否有活跃的 run 需要恢复
     if (this.threadState?.next && this.threadState.next.length > 0) {
-      const config: Config = {
-        configurable: {
-          thread_id: this.threadId,
+      try {
+        // 调用 Proxy 的 resume 端点检查是否有活跃的 run
+        const runs: Run[] = yield this.client.runs.list(this.threadId);
+
+        // 复用最后一个 assistantElement 的 executionResponse
+        // 否则创建新的 executionResponse
+        let executionResponse: ExecutionResponse;
+        const lastElement = this.elements[this.elements.length - 1];
+
+        if (lastElement && Conversation.isAssistantElement(lastElement)) {
+          // 复用未完成的 executionResponse
+          executionResponse = lastElement.executionResponse;
+          console.log('[Conversation] Reusing existing executionResponse for continuation');
+        } else {
+          // 创建新的 executionResponse
+          executionResponse = new ExecutionResponse();
+          this.addExecutionResponse(executionResponse);
+          console.log('[Conversation] Created new executionResponse for continuation');
         }
-      }
 
-      // 复用最后一个 assistantElement 的 executionResponse
-      // 否则创建新的 executionResponse
-      let executionResponse: ExecutionResponse;
-      const lastElement = this.elements[this.elements.length - 1];
-      
-      if (lastElement && Conversation.isAssistantElement(lastElement)) {
-        // 复用未完成的 executionResponse
-        executionResponse = lastElement.executionResponse;
-        console.log('[Conversation] Reusing existing executionResponse for continuation');
-      } else {
-        // 创建新的 executionResponse
-        executionResponse = new ExecutionResponse();
-        this.addExecutionResponse(executionResponse);
-        console.log('[Conversation] Created new executionResponse for continuation');
+        if (runs.length > 0) {
+          const run = runs[runs.length - 1];
+          console.log(`[Conversation] Resuming active run: ${run.run_id} (graph: ${run.assistant_id})`);
+          this.executor.joinExistingRun(
+            run.run_id,
+            run.assistant_id,
+            executionResponse
+          );
+        }
+      } catch (error) {
+        console.error('[Conversation] Failed to resume active run:', error);
       }
-
-      this.executor.invoke({
-        input: null,
-        executionResponse,
-        config
-      });
     }
   }
 
