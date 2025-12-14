@@ -116,10 +116,7 @@ router.post('/:threadId/runs/stream', async (req, res) => {
         for await (const chunk of stream) {
             eventCount++;
 
-            console.log(`[Proxy] Chunk ${eventCount}:`, JSON.stringify(chunk).substring(0, 200));
-
             try {
-                console.log(`[Proxy] Buffering event: ${chunk.data.id} (${chunk.data.eventType})`);
                 if (chunk.event) {
                     res.write(`event: ${chunk.event}\n`);
                 }

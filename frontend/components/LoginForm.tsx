@@ -9,6 +9,7 @@ import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { userStore } from '@/stores/User';
 import { DeepResearchPageStore } from '@/stores';
 import { flowResult } from 'mobx';
+import { useAlert } from '@/components/AlertContext';
 
 interface LoginFormProps {
   store: DeepResearchPageStore;
@@ -18,6 +19,7 @@ export const LoginForm = observer(({ store }: LoginFormProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const { showAlert } = useAlert();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +38,7 @@ export const LoginForm = observer(({ store }: LoginFormProps) => {
 
     try {
       await flowResult(userStore.signInWithPassword(email, password));
-      store.showToast('登录成功', 'success');
+      showAlert('登录成功', 'success');
     } catch (err: any) {
       console.error('Login error:', err);
       // 根据 Supabase 错误类型显示友好的错误消息

@@ -9,6 +9,7 @@ import {
 import { ExecutionResponse } from './ExecutionResponse';
 
 const DEFAULT_GRAPH_ID = 'fullResearchAgent';
+
 const LANGGRAPH_API_URL =
   process.env.NEXT_PUBLIC_LANGGRAPH_API_URL || 'http://localhost:2024';
 
@@ -17,10 +18,16 @@ interface IConversation {
 }
 
 export class Executor {
+  /** 关联的会话 */
   private readonly conversation: IConversation;
+
+  /** LangGraph SDK client */
   private readonly client: Client;
 
+  /** 是否正在执行 */
   @observable isExecuting: boolean = false;
+
+  /** 当前的 abort controller，用于中断流式数据接收 */
   private currentAbortController: AbortController | null = null;
 
   constructor(conversation: IConversation, client: Client) {
@@ -53,14 +60,15 @@ export class Executor {
     chunk: any,
     executionResponse: ExecutionResponse
   ): AnyEvent | null {
-    console.log(chunk)
-    // Proxy 直接转发 Agent Server 的原始 chunk
-    // chunk.data 就是 config.writer() 发送的数据
+    console.log(chunk);
+
     const data = chunk.data as BaseEvent.IEventData<unknown>;
+
     if (data?.eventType && data?.id) {
       data.status = data.status || 'finished';
       return this.upsertEvent(data, executionResponse);
     }
+
     return null;
   }
 
@@ -100,8 +108,6 @@ export class Executor {
     const currentExecutionResponse = executionResponse || new ExecutionResponse();
 
     try {
-      // 使用 LangGraph SDK 的 runs.stream
-      // Proxy 会拦截并持久化事件
       const streamResponse = this.client.runs.stream(
         threadId,
         graphId,
@@ -161,10 +167,25 @@ export class Executor {
     const currentExecutionResponse = executionResponse || new ExecutionResponse();
 
     try {
+      await fetch(`${LANGGRAPH_API_URL}/api/events/flush`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+    }
+    catch {
+      // 不阻塞join stream，继续执行
+    }
+
+    try {
       console.log(`[Executor] Joining run ${runId} for thread ${threadId}`);
 
       // 使用 joinStream 恢复
-      const streamResponse = this.client.runs.joinStream(threadId, runId);
+      const streamResponse = this.client.runs.joinStream(threadId, runId, {
+        streamMode: "custom",
+        signal: this.currentAbortController.signal,
+      });
 
       for await (const chunk of streamResponse) {
         this.handleCustomChunk(chunk, currentExecutionResponse);

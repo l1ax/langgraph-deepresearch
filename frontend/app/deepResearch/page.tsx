@@ -19,7 +19,8 @@ import { TreeViewUI } from '@/components/TreeViewUI';
 import { ConversationSidebar } from '@/components/ConversationSidebar';
 import { ConversationComposer } from '@/components/ConversationComposer';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ToastContainer } from '@/components/Toast';
+import { AlertProvider, useAlert } from '@/components/AlertContext';
+import { AlertContainer } from '@/components/AlertContainer';
 import { AuthButton } from '@/components/AuthButton';
 import { LoginForm } from '@/components/LoginForm';
 import { flowResult } from 'mobx';
@@ -148,21 +149,29 @@ const LoginPrompt = observer<{ store: DeepResearchPageStore }>(({ store }) => {
   );
 });
 
-const DeepResearchPage = observer(() => {
+const DeepResearchPageContent = observer(() => {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const composerInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const store = useMemo(() => new DeepResearchPageStore(), []);
+  const { showAlert } = useAlert();
 
   // Initialize client and auth
   useEffect(() => {
-    store.initClient();
+    const init = async () => {
+      try {
+        await flowResult(store.initClient());
+      } catch (error) {
+        showAlert('初始化失败，请刷新页面重试', 'danger');
+      }
+    };
+    init();
     
     // Cleanup on unmount
     return () => {
       store.dispose();
     };
-  }, [store]);
+  }, [store, showAlert]);
 
   // Auto-scroll to bottom when elements change
   useEffect(() => {
@@ -171,7 +180,15 @@ const DeepResearchPage = observer(() => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await store.handleSubmit();
+    try {
+      await flowResult(store.handleSubmit());
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        showAlert(error.message, 'danger');
+      } else {
+        showAlert('处理请求时出现错误', 'danger');
+      }
+    }
   };
 
   const handleSuggestedPrompt = (prompt: string) => {
@@ -190,8 +207,8 @@ const DeepResearchPage = observer(() => {
 
   return (
     <div className="flex h-screen w-full min-h-0 bg-background text-foreground font-sans selection:bg-primary/20">
-      {/* Toast 通知 */}
-      <ToastContainer store={store} />
+      {/* Alert 通知 */}
+      <AlertContainer />
       
       {/* Sidebar */}
       <ConversationSidebar store={store} />
@@ -305,10 +322,10 @@ const DeepResearchPage = observer(() => {
                     )}
                     <div className="flex flex-wrap gap-3 justify-center">
                       {[
-                        '对比OPENAI和Google在大模型商业化路径的不同，主要是近三年',
-                        '为初创公司设计研究流程',
-                        'Tavily 搜索在研究代理中的作用',
-                        'Supervisor Agent 的协作模式'
+                        '深度对比特斯拉与比亚迪的供应链',
+                        '分析英伟达最新财报的亮点与风险',
+                        '调研全球具身智能领域的商业化',
+                        '探索百度在2026年倒闭的可能性'
                       ].map((prompt) => (
                         <Button
                           key={prompt}
@@ -331,5 +348,13 @@ const DeepResearchPage = observer(() => {
     </div>
   );
 });
+
+const DeepResearchPage = () => {
+  return (
+    <AlertProvider>
+      <DeepResearchPageContent />
+    </AlertProvider>
+  );
+};
 
 export default DeepResearchPage;

@@ -8,6 +8,7 @@ import { LogOut, User, Loader2 } from 'lucide-react';
 import { userStore } from '@/stores/User';
 import { DeepResearchPageStore } from '@/stores';
 import { cn } from '@/lib/utils';
+import { useAlert } from '@/components/AlertContext';
 
 interface AuthButtonProps {
   store: DeepResearchPageStore;
@@ -16,13 +17,14 @@ interface AuthButtonProps {
 
 export const AuthButton = observer(({ store, variant = 'default' }: AuthButtonProps) => {
   const { currentUser, isAuthLoading } = userStore;
+  const { showAlert } = useAlert();
 
   const handleSignOut = async () => {
     try {
       await userStore.signOut();
-      store.showToast('已成功登出', 'success');
+      showAlert('已成功登出', 'success');
     } catch (error) {
-      store.showToast('登出失败，请重试', 'error');
+      showAlert('登出失败，请重试', 'danger');
     }
   };
 

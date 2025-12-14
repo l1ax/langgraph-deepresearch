@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { observer } from 'mobx-react-lite';
-import { DeepResearchPageStore } from '@/stores';
+import { Conversation, DeepResearchPageStore } from '@/stores';
 import { userStore } from '@/stores/User';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -17,19 +17,21 @@ interface ConversationSidebarProps {
 }
 
 import { DeleteConversationDialog } from '@/components/DeleteConversationDialog';
+import { useAlert } from '@/components/AlertContext';
 
 export const ConversationSidebar = observer(({ store }: ConversationSidebarProps) => {
   const { conversations, currentConversation, isSidebarOpen, isLoadingConversations } = store;
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [threadToDelete, setThreadToDelete] = React.useState<string | null>(null);
+  const { showAlert } = useAlert();
 
   /** 处理登出 */
   const handleSignOut = async () => {
     try {
       await flowResult(userStore.signOut());
-      store.showToast('已成功登出', 'success');
+      showAlert('已成功登出', 'success');
     } catch (error) {
-      store.showToast('登出失败，请重试', 'error');
+      showAlert('登出失败，请重试', 'danger');
     }
   };
 
@@ -45,9 +47,18 @@ export const ConversationSidebar = observer(({ store }: ConversationSidebarProps
   /** 确认删除 */
   const handleConfirmDelete = async () => {
     if (threadToDelete) {
-      store.deleteConversation(threadToDelete);
-      setDeleteDialogOpen(false);
-      setThreadToDelete(null);
+      try {
+        await flowResult(store.deleteConversation(threadToDelete));
+        showAlert('对话已删除', 'success');
+        setDeleteDialogOpen(false);
+        setThreadToDelete(null);
+      } catch (error: unknown) {
+        if (error instanceof Error) {
+          showAlert(error.message, 'danger');
+        } else {
+          showAlert('删除对话失败，请重试', 'danger');
+        }
+      }
     }
   };
 
@@ -55,6 +66,18 @@ export const ConversationSidebar = observer(({ store }: ConversationSidebarProps
   const handleCancelDelete = () => {
     setDeleteDialogOpen(false);
     setThreadToDelete(null);
+  };
+
+  const handleSwitchToConversation = async (conversation: Conversation) => {
+    try {
+      await flowResult(store.switchToConversation(conversation));
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        showAlert(error.message, 'danger');
+      } else {
+        showAlert('切换会话失败，请重试', 'danger');
+      }
+    }
   };
 
   if (!isSidebarOpen) return null;
@@ -109,7 +132,7 @@ export const ConversationSidebar = observer(({ store }: ConversationSidebarProps
                       )}
                     >
                       <button
-                        onClick={() => store.switchToConversation(conversation.threadId)}
+                        onClick={() => handleSwitchToConversation(conversation)}
                         className="w-full text-left"
                         disabled={isDeleting}
                       >

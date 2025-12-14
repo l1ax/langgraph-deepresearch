@@ -8,7 +8,11 @@ import { cn } from '@/lib/utils';
 // @ts-expect-error
 import Typewriter from 'typewriter-effect/dist/core';
 
-const TYPEWRITER_STRINGS = ["正在准备研究：2025年半导体供应链分析...", "正在准备研究：对比Google和OpenAI的大模型发展方向..."];
+const TYPEWRITER_STRINGS = [
+  "请深入调研 2024-2025 年全球‘具身智能 (Embodied AI)’ 领域的商业化落地现状，分析主要的技术瓶颈，并梳理出目前获得融资最多的前 5 家初创公司的核心竞争力。",
+  "请撰写一份关于‘固态电池’技术在消费电子领域应用的调研报告。总结过去 12 个月内的突破性学术进展，列出主要的技术路线之争，并预估大规模量产的时间节点。",
+  "全方位对比特斯拉 (Tesla) 与比亚迪 (BYD) 在全球供应链布局上的差异。重点分析双方在电池原材料控制、制造通过率以及地缘政治风险应对上的优劣势。"
+];
 
 interface ConversationComposerProps {
   variant?: 'chat' | 'landing';

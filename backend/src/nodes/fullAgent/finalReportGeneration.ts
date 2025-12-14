@@ -56,7 +56,7 @@ export const finalReportGeneration = traceable(async (
             'final-report-chat'
         )
     );
-    chatEvent.setMessage('Generating final report...');
+    chatEvent.setMessage('报告生成中...');
     if (config.writer) {
         config.writer(chatEvent.setStatus('running').toJSON());
     }
@@ -72,16 +72,19 @@ export const finalReportGeneration = traceable(async (
     );
 
     let finalReport = '';
+    let bufferString = '';
 
     for await (const chunk of response) {
-        finalReport += chunk.content as string;
-        if (config.writer && finalReport.length > 0) {
+        bufferString += chunk.content as string;
+        if (config.writer && bufferString.length > 10) {
+            finalReport += bufferString;
+            bufferString = '';
             config.writer(chatEvent.setMessage(finalReport).setStatus('running').toJSON());
         }
     }
 
     if (config.writer) {
-        config.writer(chatEvent.setStatus('finished').toJSON());
+        config.writer(chatEvent.setMessage(finalReport).setStatus('finished').toJSON());
     }
 
     const eventsToAdd = [chatEvent.toJSON()];

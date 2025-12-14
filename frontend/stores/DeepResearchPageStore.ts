@@ -46,43 +46,12 @@ export class DeepResearchPageStore {
   /** 加载历史记录的 loading 状态 */
   @observable isHistoryLoading: boolean = false;
 
-  /** Toast 消息队列 */
-  @observable toasts: DeepResearchPageStore.Toast[] = [];
-
   constructor() {
     makeObservable(this);
 
     // 监听用户状态变化
     userStore.events.on('userChange', this.onUserChange);
   }
-
-  // ===== Toast 消息方法 =====
-
-  @action.bound
-  showToast(message: string, type: DeepResearchPageStore.ToastType = 'info', duration: number = 3000) {
-    const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const toast: DeepResearchPageStore.Toast = { id, message, type, duration };
-    this.toasts.push(toast);
-
-    // 自动移除
-    if (duration > 0) {
-      setTimeout(() => {
-        this.removeToast(id);
-      }, duration);
-    }
-
-    return id;
-  }
-
-  @action.bound
-  removeToast(id: string) {
-    const index = this.toasts.findIndex(t => t.id === id);
-    if (index !== -1) {
-      this.toasts.splice(index, 1);
-    }
-  }
-
-  // ===== 用户会话管理 =====
 
   /** 加载用户的会话列表 */
   @flow.bound
@@ -98,15 +67,15 @@ export class DeepResearchPageStore {
 
       const asyncTasks = threads.map(async (thread) => {
         const conversation = new Conversation(thread.id, thread.title);
+
         conversation.createdAt = thread.createdAt;
+
         this.conversations.push(conversation);
-        await conversation.restoreBasicDataByThreadId(thread.id);
+
+        await flowResult(conversation.restoreBasicDataByThreadId(thread.id));
       });
 
       yield Promise.all(asyncTasks);
-    } catch (error) {
-      console.error('Failed to load conversations:', error);
-      this.showToast('加载会话列表失败', 'error');
     } finally {
       this.isLoadingConversations = false;
     }
@@ -152,32 +121,29 @@ export class DeepResearchPageStore {
 
   /** 切换到指定的会话 */
   @flow.bound
-  *switchToConversation(threadId: string): Generator<Promise<any>, void, any> {
-    const conversation = this.conversations.find(c => c.threadId === threadId);
+  *switchToConversation(conversation: Conversation): Generator<Promise<any>, void, any> {
+    if (conversation === this.currentConversation) {
+      return;
+    }
 
-    if (conversation) {
-      try {
-        // 如果当前有正在执行的会话，中止它
-        if (this.currentConversation && this.currentConversation !== conversation) {
-          console.log('[DeepResearchPageStore] Aborting previous conversation execution');
-          this.currentConversation.executor.abort();
-        }
-
-        this.isHistoryLoading = true;
-        this.currentConversation = conversation;
-
-        // 重新拉取最新的 state（包含 next、tasks 等信息）
-        console.log('[DeepResearchPageStore] Fetching latest state for conversation');
-        yield flowResult(conversation.restoreBasicDataByThreadId(threadId));
-
-        // 使用 yield 处理异步操作，确保 loading 状态持续到加载完成
-        yield flowResult(conversation.restoreChatHistoryByThreadId(threadId));
-      } catch (error) {
-        console.error('Failed to restore chat history:', error);
-        this.showToast('加载会话历史失败', 'error');
-      } finally {
-        this.isHistoryLoading = false;
+    try {
+      // 如果当前有正在执行的会话，中止它
+      if (this.currentConversation && this.currentConversation !== conversation) {
+        this.currentConversation.executor.abort();
       }
+
+      this.isHistoryLoading = true;
+
+      this.currentConversation = conversation;
+
+      yield Promise.all([
+        flowResult(conversation.restoreBasicDataByThreadId(conversation.threadId)),
+        flowResult(conversation.restoreChatHistoryByThreadId(conversation.threadId))
+      ]);
+    } catch (error) {
+      console.error('Failed to switch conversation:', error);
+    } finally {
+      this.isHistoryLoading = false;
     }
   }
 
@@ -214,11 +180,9 @@ export class DeepResearchPageStore {
       if (this.currentConversation?.threadId === threadId) {
         this.currentConversation = null;
       }
-
-      this.showToast('对话已删除', 'success');
     } catch (error) {
       console.error('Failed to delete conversation:', error);
-      this.showToast('删除对话失败，请重试', 'error');
+      throw error;
     } finally {
       this.deletingConversationIds.delete(threadId);
     }
@@ -237,7 +201,7 @@ export class DeepResearchPageStore {
 
     } catch (error) {
       console.error('Failed to initialize client:', error);
-      this.showToast('初始化失败，请刷新页面重试', 'error');
+      throw error;
     } finally {
       this.isInitializing = false;
     }
@@ -266,15 +230,54 @@ export class DeepResearchPageStore {
     }
   }
 
+  @flow.bound
+  * initializeConversationAfterCreate() {
+    if (!this.currentConversation) {
+      return;
+    }
+
+    const userMessageContent = this.inputValue;
+
+    // 添加用户消息到当前会话
+    this.currentConversation.addUserMessage(userMessageContent);
+    this.clearInput();
+
+    const executionResponse = new ExecutionResponse();
+
+    this.currentConversation.addExecutionResponse(executionResponse);
+
+    try {
+      this.isSendingMessage = true;
+      
+      yield this.currentConversation.executor.invoke({
+        input: { messages: [{ role: 'user', content: userMessageContent }] },
+        executionResponse
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // 如果出错，移除刚才添加的 executionResponse，改用错误消息
+      const elements = this.currentConversation.elements;
+      const lastElement = elements[elements.length - 1];
+      if (Conversation.isAssistantElement(lastElement) && lastElement.executionResponse === executionResponse) {
+        elements.pop();
+      }
+      this.addErrorMessage(
+        '抱歉，处理您的请求时出现错误。'
+      );
+      throw error;
+    } finally {
+      this.isSendingMessage = false;
+    }
+  }
+
   /** 提交用户消息并处理流式响应 */
   @flow.bound
-  *handleSubmit() {
+  * handleSubmit() {
     if (!this.inputValue.trim()) return;
 
     // 检查是否已登录
     if (!userStore.currentUser) {
-      this.showToast('请先登录后再发送消息', 'warning');
-      return;
+      throw new Error('请先登录后再发送消息');
     }
 
     let conversation = this.currentConversation;
@@ -285,34 +288,22 @@ export class DeepResearchPageStore {
 
         const title = this.inputValue.slice(0, 100);
         
-        // 创建 thread，同时传递 userId 和 title，proxy 会自动写入数据库
-        const response: Response = yield fetch(`${LANGGRAPH_API_URL}/threads`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            metadata: {},
-            userId: userStore.currentUser.id,
-            title: title
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to create thread: ${response.statusText}`);
-        }
-
-        const thread: LangGraphThread = yield response.json();
-        const threadId = thread.thread_id;
-
-        conversation = new Conversation(threadId, title);
+        conversation = yield Conversation.createNew(title);
         // 创建时间倒序排序
-        this.conversations.unshift(conversation);
+        this.conversations.unshift(conversation!);
 
         this.currentConversation = conversation;
+
+        this.isCreatingConversation = false;
+
+        yield this.initializeConversationAfterCreate();
+
       } catch (error) {
         console.error('Failed to create conversation thread:', error);
+
         this.addErrorMessage('无法创建新的对话，请稍后重试或确认服务配置。');
-        this.showToast('创建对话失败', 'error');
-        return;
+
+        throw error;
       } finally {
         this.isCreatingConversation = false;
       }
@@ -320,46 +311,7 @@ export class DeepResearchPageStore {
 
     if (!conversation) return;
 
-    const userMessageContent = this.inputValue;
-
-    // 添加用户消息到当前会话
-    conversation.addUserMessage(userMessageContent);
-    this.clearInput();
-
-    // 先创建 ExecutionResponse 并添加到 conversation，这样在流式接收过程中 UI 就能实时渲染
-    const executionResponse = new ExecutionResponse();
-    conversation.addExecutionResponse(executionResponse);
-
-    try {
-      this.isSendingMessage = true;
-      
-      // 调用 conversation 的 executor，传入 executionResponse，让它在流式接收过程中更新
-      yield conversation.executor.invoke({
-        input: { messages: [{ role: 'user', content: userMessageContent }] },
-        executionResponse
-      });
-
-      // 成功完成后，更新 thread 标题（使用第一条用户消息作为标题）
-      if (!conversation.title) {
-        const title = userMessageContent.slice(0, 100);
-        yield flowResult(apiService.updateThread(conversation.threadId, { title }));
-        conversation.setTitle(title);
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      // 如果出错，移除刚才添加的 executionResponse，改用错误消息
-      const elements = conversation.elements;
-      const lastElement = elements[elements.length - 1];
-      if (Conversation.isAssistantElement(lastElement) && lastElement.executionResponse === executionResponse) {
-        elements.pop();
-      }
-      this.addErrorMessage(
-        '抱歉，处理您的请求时出现错误。'
-      );
-      this.showToast('发送消息失败', 'error');
-    } finally {
-      this.isSendingMessage = false;
-    }
+    
   }
 
   /** 是否正在加载/处理请求 */
@@ -442,16 +394,5 @@ export namespace DeepResearchPageStore {
       'messages' in chunk.data &&
       Array.isArray((chunk.data as GraphState).messages)
     );
-  }
-
-  /** Toast 类型 */
-  export type ToastType = 'info' | 'success' | 'warning' | 'error';
-
-  /** Toast 消息 */
-  export interface Toast {
-    id: string;
-    message: string;
-    type: ToastType;
-    duration: number;
   }
 }

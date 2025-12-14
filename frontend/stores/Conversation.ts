@@ -4,7 +4,8 @@ import { AnyEvent, createEventFromData, BaseEvent, isChatEvent, ChatEvent } from
 import { ExecutionResponse } from './ExecutionResponse';
 import { Executor } from './Executor';
 import { apiService, StoredEvent } from '@/services/api';
-import {Client, Run} from '@langchain/langgraph-sdk';
+import {Client, Run, Thread} from '@langchain/langgraph-sdk';
+import {userStore} from './User';
 
 const LANGGRAPH_API_URL =
   process.env.NEXT_PUBLIC_LANGGRAPH_API_URL || 'http://localhost:2024';
@@ -15,6 +16,30 @@ const LANGGRAPH_API_URL =
  * 维护 client 和 executor 实例
  */
 export class Conversation {
+  static async createNew(title: string): Promise<Conversation> {
+    if (!userStore.currentUser) {
+      throw new Error('User not logged in');
+    }
+
+    const response: Response = await fetch(`${LANGGRAPH_API_URL}/threads`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        metadata: {},
+        userId: userStore.currentUser.id,
+        title: title
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to create thread: ${response.statusText}`);
+    }
+
+    const thread: Thread = await response.json();
+
+    return new Conversation(thread.thread_id, title);
+  }
+
   /** 会话唯一标识（对应 LangGraph threadId） */
   readonly threadId: string;
 
@@ -187,7 +212,6 @@ export class Conversation {
 
     // 转换数据库 events 为 IEventData 格式
     const events = dbEvents.map(e => this.convertStoredEventToEventData(e));
-    console.log(`[Conversation] Loaded events from database: ${events.length}`);
 
     if (events.length > 0) {
       this.restoreFromEvents(events);
@@ -207,17 +231,13 @@ export class Conversation {
         if (lastElement && Conversation.isAssistantElement(lastElement)) {
           // 复用未完成的 executionResponse
           executionResponse = lastElement.executionResponse;
-          console.log('[Conversation] Reusing existing executionResponse for continuation');
         } else {
-          // 创建新的 executionResponse
           executionResponse = new ExecutionResponse();
           this.addExecutionResponse(executionResponse);
-          console.log('[Conversation] Created new executionResponse for continuation');
         }
 
         if (runs.length > 0) {
           const run = runs[runs.length - 1];
-          console.log(`[Conversation] Resuming active run: ${run.run_id} (graph: ${run.assistant_id})`);
           this.executor.joinExistingRun(
             run.run_id,
             run.assistant_id,

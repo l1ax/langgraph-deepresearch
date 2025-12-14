@@ -1,6 +1,11 @@
 /**
  * 事件持久化服务
- * 负责将流式事件批量保存到数据库
+ * 
+ * 职责：
+ * 1. 调用 langgraph runs api 时，拦截 SSE 流，批量保存到持久化服务类中
+ * 2. 每次接收到一个事件，判断：
+ *  - 当前缓冲区事件是否超过【设定最大值】，如果超过，立即保存到数据库
+ *  - 如果未超过，设定定时器，回调中调用保存方法
  */
 
 import { Pool } from 'pg';
@@ -28,8 +33,8 @@ interface BufferedEvent {
 class EventPersistenceService {
     private eventBuffer: BufferedEvent[] = [];
     private bufferTimer: NodeJS.Timeout | null = null;
-    private readonly BATCH_SIZE = 200;
-    private readonly BATCH_TIMEOUT = 200; // 1秒
+    private readonly BATCH_SIZE = 50;
+    private readonly BATCH_TIMEOUT = 1000;
 
     /**
      * 添加事件到缓冲区
