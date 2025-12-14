@@ -3,10 +3,13 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
+    "prebuild": "prisma generate",
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push"
   },
   "dependencies": {
     "@langchain/langgraph-sdk": "^1.2.0",

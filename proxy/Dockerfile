@@ -19,7 +19,13 @@ ENV DIRECT_URL=${DIRECT_URL}
 
 COPY . .
 
-RUN pnpm install && pnpm build
+# 🔥 关键修复：按正确顺序执行构建步骤
+# 1. 安装依赖（包含 prisma 和 @prisma/client）
+# 2. 生成 Prisma Client（必须在 TypeScript 编译之前）
+# 3. 编译 TypeScript 代码
+RUN pnpm install --frozen-lockfile && \
+    pnpm exec prisma generate && \
+    pnpm build
 
 EXPOSE 2024
 
