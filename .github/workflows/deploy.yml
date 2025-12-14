@@ -76,10 +76,10 @@ jobs:
           port: 11570
           script: |
             echo "====== 开始部署流程 ======"
-            
+
             # 1. 打印当前位置，防止进错目录
             echo "1. Current dir: $(pwd)"
-            
+
             # 2. 尝试进入目录，如果失败则直接退出 (避免在根目录瞎操作)
             # 注意：请确认路径是否真的是 /root/langgraph-deepresearch
             cd /root/langgraph-deepresearch || { echo "❌ 目录不存在!"; exit 1; }
@@ -89,17 +89,21 @@ jobs:
             echo "2. 正在强制同步代码..."
             git fetch --all
             git reset --hard origin/main
-            
+
             # 4. 打印 docker-compose.yml 的前几行，验证是否更新了
             echo "3. 验证配置文件内容:"
             head -n 10 docker-compose.yml
 
-            # 5. 拉取镜像并重启
-            echo "4. 拉取镜像并重启..."
+            # 5. 设置 Docker 用户名环境变量 (用于 docker-compose.yml 中的镜像名称)
+            echo "4. 设置 Docker 用户名..."
+            export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+
+            # 6. 拉取镜像并重启
+            echo "5. 拉取镜像并重启..."
             docker compose pull
             docker compose up -d --force-recreate
-            
-            echo "5. 清理旧镜像..."
+
+            echo "6. 清理旧镜像..."
             docker image prune -f
-            
+
             echo "====== 部署完成 ======"

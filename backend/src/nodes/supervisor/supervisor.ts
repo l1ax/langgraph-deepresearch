@@ -71,10 +71,15 @@ export const supervisor = traceable(async (state: typeof StateAnnotation.State, 
     const response = await supervisorModelWithTools.invoke(messages, config);
 
     const eventsToAdd: BaseEvent.IJsonData[] = [];
+
+    if (supervisorEvent) {
+        eventsToAdd.push(supervisorEvent.toJSON());
+    }
+
     const textContent = extractContent(response.content);
     if (textContent && config?.writer) {
         // 使用确定性 ID，iteration 用于区分不同次调用
-        const chatEventId = threadId 
+        const chatEventId = threadId
             ? BaseEvent.generateDeterministicId(threadId, checkpointId, NODE_NAME, '/supervisor/chat', iteration)
             : undefined;
         const chatEvent = new ChatEvent('supervisor', chatEventId);
@@ -95,7 +100,6 @@ export const supervisor = traceable(async (state: typeof StateAnnotation.State, 
         // 第一次创建，更新 state
         returnValue.supervisor_group_event = supervisorEvent.toJSON();
         returnValue.supervisor_group_id = supervisorGroupId;
-        eventsToAdd.push(supervisorEvent.toJSON());
     }
 
     if (eventsToAdd.length > 0) {
