@@ -24,10 +24,11 @@ services:
 
   # LangGraph Agent Server (内部服务，不对外暴露)
   langgraph-api:
+    # 生产环境从 Docker Hub 拉取，开发环境可本地构建
+    image: ${DOCKER_USERNAME:-langgraph-deepresearch}/langgraph-deepresearch-backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: langgraph-deepresearch-backend:latest
     container_name: langgraph-api
     expose:
       - "8000"  # 仅内部网络可访问
@@ -50,10 +51,11 @@ services:
 
   # Express Proxy (对外服务)
   langgraph-proxy:
+    # 生产环境从 Docker Hub 拉取，开发环境可本地构建
+    image: ${DOCKER_USERNAME:-langgraph-deepresearch}/langgraph-proxy:latest
     build:
       context: ./proxy
       dockerfile: Dockerfile
-    image: langgraph-proxy:latest
     container_name: langgraph-proxy
     ports:
       - "2024:2024"  # 对外暴露 2024 端口
@@ -74,6 +76,8 @@ services:
 
   # Frontend
   frontend:
+    # 生产环境从 Docker Hub 拉取，开发环境可本地构建
+    image: ${DOCKER_USERNAME:-langgraph-deepresearch}/langgraph-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -81,7 +85,6 @@ services:
         NEXT_PUBLIC_LANGGRAPH_API_URL: ${NEXT_PUBLIC_LANGGRAPH_API_URL:-}
         NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
-    image: langgraph-frontend:latest
     container_name: frontend
     ports:
       - "80:3000"
