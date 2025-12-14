@@ -19,7 +19,7 @@ ENV DIRECT_URL=${DIRECT_URL}
 
 COPY . .
 
-RUN pnpm build
+RUN pnpm install && pnpm build
 
 EXPOSE 2024
 
