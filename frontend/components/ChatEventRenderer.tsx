@@ -22,9 +22,7 @@ export const ChatEventRenderer = observer(
     const isError = status === 'error';
     const isLoading = isPending || isRunning;
 
-    // 判断是否为最终报告生成场景（消息以 "Generating" 开头或包含大量内容）
-    // NOTE: Keeping English keyword check for compatibility, but updated display logic below
-    const isFinalReportGeneration = message.includes('Generating final report') || message.includes('正在生成最终报告') || message.length > 200;
+    const isFinalReportGeneration = message.length > 0;
 
     return (
       <div
@@ -84,7 +82,10 @@ export const ChatEventRenderer = observer(
                     ? '生成中...'
                     : isError
                       ? '错误'
+                      ? '错误'
                       : isFinished
+                        ? '已完成'
+                        : '最终报告'}
                         ? '已完成'
                         : '最终报告'}
               </p>
