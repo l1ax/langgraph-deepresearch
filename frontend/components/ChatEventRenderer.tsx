@@ -22,6 +22,14 @@ export const ChatEventRenderer = observer(
     const isError = status === 'error';
     const isLoading = isPending || isRunning;
 
+    const getStatusText = () => {
+      if (isPending) return '准备中...';
+      if (isRunning) return '生成中...';
+      if (isError) return '错误';
+      if (isFinished) return '已完成';
+      return '最终报告';
+    };
+
     const isFinalReportGeneration = message.length > 0;
 
     return (
@@ -76,22 +84,11 @@ export const ChatEventRenderer = observer(
                   isError ? 'text-destructive/80' : 'text-muted-foreground'
                 )}
               >
-                {isPending
-                  ? '准备中...'
-                  : isRunning
-                    ? '生成中...'
-                    : isError
-                      ? '错误'
-                      ? '错误'
-                      : isFinished
-                        ? '已完成'
-                        : '最终报告'}
-                        ? '已完成'
-                        : '最终报告'}
+                {getStatusText()}
               </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* 内容区域 */}
         <div
