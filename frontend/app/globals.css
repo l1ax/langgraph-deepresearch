@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@heroui/styles"; 
+@import '@xyflow/react/dist/style.css';
+
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));

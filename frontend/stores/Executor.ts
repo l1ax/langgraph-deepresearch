@@ -8,7 +8,7 @@ import {
 } from './events';
 import { ExecutionResponse } from './ExecutionResponse';
 
-const DEFAULT_GRAPH_ID = 'fullResearchAgent';
+const DEFAULT_GRAPH_ID = 'scopeAgent';
 
 const LANGGRAPH_API_URL =
   process.env.NEXT_PUBLIC_LANGGRAPH_API_URL || 'http://localhost:2024';

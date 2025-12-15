@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
-import { User, Bot, Sparkles, Menu } from 'lucide-react';
+import { User, Bot, Sparkles, Menu, GitBranch, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,12 +10,13 @@ import { cn } from '@/lib/utils';
 import { DeepResearchPageStore, Conversation, ClarifyEvent, BriefEvent, ChatEvent, ToolCallEvent, GroupEvent } from '@/stores';
 import { userStore } from '@/stores/User';
 import { EventRendererRegistry } from '@/services';
-import { ClarifyEventRenderer } from '@/components/ClarifyEventRenderer';
-import { BriefEventRenderer } from '@/components/BriefEventRenderer';
-import { ChatEventRenderer } from '@/components/ChatEventRenderer';
-import { ToolCallEventRenderer } from '@/components/ToolCallEventRenderer';
-import { GroupEventRenderer } from '@/components/GroupEventRenderer';
+import { ClarifyEventRenderer } from '@/components/eventRenders/ClarifyEventRenderer';
+import { BriefEventRenderer } from '@/components/eventRenders/BriefEventRenderer';
+import { ChatEventRenderer } from '@/components/eventRenders/ChatEventRenderer';
+import { ToolCallEventRenderer } from '@/components/eventRenders/ToolCallEventRenderer';
+import { GroupEventRenderer } from '@/components/eventRenders/GroupEventRenderer';
 import { TreeViewUI } from '@/components/TreeViewUI';
+import { WorkflowViewUi } from '@/components/WorkflowViewUi';
 import { ConversationSidebar } from '@/components/ConversationSidebar';
 import { ConversationComposer } from '@/components/ConversationComposer';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -215,39 +216,87 @@ const DeepResearchPageContent = observer(() => {
                </Button>
              )}
            </div>
-           <div>
+           <div className="flex items-center gap-2">
+              {hasConversation && (
+                <Button 
+                  variant={store.isWorkflowViewOpen ? "secondary" : "ghost"} 
+                  size="sm" 
+                  onClick={() => store.toggleWorkflowView()} 
+                  className="text-muted-foreground hover:text-foreground gap-1.5"
+                >
+                   <GitBranch className="h-4 w-4" />
+                   <span className="hidden sm:inline">展示执行视图</span>
+                </Button>
+              )}
               <AuthButton store={store} />
            </div>
         </header>
 
-        {/* Content - Flexible */}
-        <div className="flex-1 overflow-hidden relative flex flex-col items-center">
-           {!hasConversation ? (
-              <LandingEvent store={store} onSuggestion={handleSuggestedPrompt} />
-           ) : (
-             <ScrollArea className="w-full h-full" ref={scrollAreaRef}>
-                 <div className="flex flex-col items-center w-full min-h-full py-8">
-                     <div className="w-full max-w-[800px] px-4 space-y-10">
-                        {store.isHistoryLoading ? (
-                           <ConversationSkeleton />
-                        ) : (
-                          <>
-                            {store.elements.map((element) => {
-                              if (Conversation.isUserElement(element)) {
-                                return <UserElementRenderer key={element.id} element={element} />;
-                              } else if (Conversation.isAssistantElement(element)) {
-                                return <AssistantElementRenderer key={element.id} element={element} />;
-                              }
-                              return null;
-                            })}
-                            {showLoading && <LoadingIndicator />}
-                            <div ref={messagesEndRef} className="h-4" />
-                          </>
-                        )}
-                     </div>
-                 </div>
-             </ScrollArea>
-           )}
+        {/* Content Area - Flex Row for chat + workflow panel */}
+        <div className="flex-1 overflow-hidden relative flex flex-row">
+          {/* Chat Content */}
+          <div className={cn(
+            "flex-1 min-w-0 flex flex-col items-center transition-all duration-300",
+            store.isWorkflowViewOpen && hasConversation ? "mr-0" : ""
+          )}>
+            {!hasConversation ? (
+               <LandingEvent store={store} onSuggestion={handleSuggestedPrompt} />
+            ) : (
+              <ScrollArea className="w-full h-full" ref={scrollAreaRef}>
+                  <div className="flex flex-col items-center w-full min-h-full py-8">
+                      <div className="w-full max-w-[800px] px-4 space-y-10">
+                         {store.isHistoryLoading ? (
+                            <ConversationSkeleton />
+                         ) : (
+                           <>
+                             {store.elements.map((element) => {
+                               if (Conversation.isUserElement(element)) {
+                                 return <UserElementRenderer key={element.id} element={element} />;
+                               } else if (Conversation.isAssistantElement(element)) {
+                                 return <AssistantElementRenderer key={element.id} element={element} />;
+                               }
+                               return null;
+                             })}
+                             {showLoading && <LoadingIndicator />}
+                             <div ref={messagesEndRef} className="h-4" />
+                           </>
+                         )}
+                      </div>
+                  </div>
+              </ScrollArea>
+            )}
+          </div>
+
+          {/* Workflow View Panel */}
+          {hasConversation && (
+            <div className={cn(
+              "h-full border-l border-border/50 bg-muted/20 flex flex-col overflow-hidden transition-all duration-300",
+              store.isWorkflowViewOpen ? "w-[450px] opacity-100" : "w-0 opacity-0 border-l-0"
+            )}>
+              {store.isWorkflowViewOpen && (
+                <>
+                  {/* Panel Header */}
+                  <div className="h-12 flex-none flex items-center justify-between px-4 border-b border-border/50 bg-background/80">
+                    <span className="text-sm font-medium text-foreground">执行视图</span>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                      onClick={() => store.toggleWorkflowView()}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {/* ReactFlow Container */}
+                  <div className="flex-1 min-h-0">
+                    {store.elements.length > 0 && Conversation.isAssistantElement(store.elements[store.elements.length - 1]) && (
+                      <WorkflowViewUi store={(store.elements[store.elements.length - 1] as Conversation.AssistantElement).executionResponse.WorkflowView} />
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Input Area - Static Footer */}
@@ -265,7 +314,7 @@ const DeepResearchPageContent = observer(() => {
                  placeholder={userStore.currentUser ? '深入研究...' : '请登录后开始研究'}
               />
               <div className="mt-2 text-center text-xs text-muted-foreground/60">
-                 DeepResearch 可能会犯错。请核查重要信息。
+                 DeepResearch的结果未必正确无误。请注意核查。
               </div>
            </div>
         </div>

@@ -26,6 +26,9 @@ export class DeepResearchPageStore {
   /** 侧边栏是否展开 */
   @observable isSidebarOpen: boolean = true;
 
+  /** 工作流视图是否展开 */
+  @observable isWorkflowViewOpen: boolean = false;
+
   /** 是否正在初始化 */
   @observable isInitializing: boolean = false;
 
@@ -118,6 +121,12 @@ export class DeepResearchPageStore {
   @action.bound
   toggleSidebar() {
     this.isSidebarOpen = !this.isSidebarOpen;
+  }
+
+  /** 切换工作流视图展开/收起 */
+  @action.bound
+  toggleWorkflowView() {
+    this.isWorkflowViewOpen = !this.isWorkflowViewOpen;
   }
 
   /** 切换到指定的会话 */
@@ -232,7 +241,7 @@ export class DeepResearchPageStore {
   }
 
   @flow.bound
-  * initializeConversationAfterCreate() {
+  * initConversationAfterQuery() {
     if (!this.currentConversation) {
       return;
     }
@@ -296,9 +305,6 @@ export class DeepResearchPageStore {
         this.currentConversation = conversation;
 
         this.isCreatingConversation = false;
-
-        yield this.initializeConversationAfterCreate();
-
       } catch (error) {
         console.error('Failed to create conversation thread:', error);
 
@@ -310,9 +316,7 @@ export class DeepResearchPageStore {
       }
     }
 
-    if (!conversation) return;
-
-    
+    yield this.initConversationAfterQuery();
   }
 
   /** 是否正在加载/处理请求 */

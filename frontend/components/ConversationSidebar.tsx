@@ -68,36 +68,36 @@ export const ConversationSidebar = observer(({ store }: ConversationSidebarProps
   };
 
   // Group conversations by date
-  const groupedConversations = React.useMemo(() => {
+  const getGroupedConversations = (() => {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
     const groups: Record<string, typeof store.conversations> = {
-      'Today': [],
-      'Yesterday': [],
+      Today: [],
+      Yesterday: [],
       'Previous 7 Days': [],
-      'Older': []
+      Older: [],
     };
 
-    store.conversations.forEach(conv => {
-       // Fix: use updatedAt instead of updated_at, fallback to createdAt
-       const dateStr = conv.updatedAt || conv.createdAt;
-       const date = new Date(dateStr);
-       
-       if (date.toDateString() === today.toDateString()) {
-         groups['Today'].push(conv);
-       } else if (date.toDateString() === yesterday.toDateString()) {
-         groups['Yesterday'].push(conv);
-       } else if (today.getTime() - date.getTime() < 7 * 24 * 60 * 60 * 1000) {
-         groups['Previous 7 Days'].push(conv);
-       } else {
-         groups['Older'].push(conv);
-       }
+    store.conversations.forEach((conv) => {
+      // 使用 updatedAt（如果存在）分组，回退到 createdAt
+      const dateStr = conv.updatedAt || conv.createdAt;
+      const date = new Date(dateStr);
+
+      if (date.toDateString() === today.toDateString()) {
+        groups.Today.push(conv);
+      } else if (date.toDateString() === yesterday.toDateString()) {
+        groups.Yesterday.push(conv);
+      } else if (today.getTime() - date.getTime() < 7 * 24 * 60 * 60 * 1000) {
+        groups['Previous 7 Days'].push(conv);
+      } else {
+        groups.Older.push(conv);
+      }
     });
 
     return groups;
-  }, [store.conversations]);
+  });
   
   // Translation map for group headers
   const groupHeaderMap: Record<string, string> = {
@@ -130,7 +130,7 @@ export const ConversationSidebar = observer(({ store }: ConversationSidebarProps
         {/* Conversation List */}
         <ScrollArea className="flex-1 px-3">
           <div className="space-y-6 pb-4">
-             {Object.entries(groupedConversations).map(([group, items]) => {
+             {Object.entries(getGroupedConversations()).map(([group, items]) => {
                 if (items.length === 0) return null;
                 
                 return (
