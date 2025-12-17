@@ -264,6 +264,11 @@ export class DeepResearchPageStore {
     try {
       this.isSendingMessage = true;
       
+      // 自动收起侧边栏
+      if (this.isSidebarOpen) {
+        this.toggleSidebar();
+      }
+      
       yield this.currentConversation.executor.invoke({
         input: { messages: [{ role: 'user', content: userMessageContent }] },
         executionResponse

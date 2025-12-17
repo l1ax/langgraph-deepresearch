@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { flowResult } from 'mobx';
-import { Plus, MessageSquare, Trash2, LogOut, User, X } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, LogOut, User, X, PanelLeftClose } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -117,14 +117,24 @@ export const ConversationSidebar = observer(({ store }: ConversationSidebarProps
       >
         {/* Header / New Chat */}
         <div className="p-4 flex flex-col gap-4">
-           <Button
-            onClick={() => store.createNewConversation()}
-            className="w-full h-10 rounded-full bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80 hover:shadow-sm justify-start px-4 gap-3 text-sm font-medium transition-all"
-            variant="ghost"
-          >
-            <Plus className="h-5 w-5 text-sidebar-foreground/70" />
-            <span>新对话</span>
-          </Button>
+           <div className="flex items-center gap-2">
+             <Button
+               onClick={() => store.createNewConversation()}
+               className="flex-1 h-10 rounded-full bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80 hover:shadow-sm justify-start px-4 gap-3 text-sm font-medium transition-all"
+               variant="ghost"
+             >
+               <Plus className="h-5 w-5 text-sidebar-foreground/70" />
+               <span>新对话</span>
+             </Button>
+             <Button
+               variant="ghost" 
+               size="icon" 
+               onClick={() => store.toggleSidebar()}
+               className="h-10 w-10 rounded-full text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/80"
+             >
+               <PanelLeftClose className="h-5 w-5" />
+             </Button>
+           </div>
         </div>
 
         {/* Conversation List */}
