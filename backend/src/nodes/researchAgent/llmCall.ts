@@ -51,13 +51,15 @@ export const researchLlmCall = traceable(async (
         const nodeName = 'researchLlmCall';
         
         const chatEvent = new ChatEvent(
-            'researcher',
-            BaseEvent.generateDeterministicId(
-                threadId!,
-                checkpointId,
-                nodeName,
-                `chat-${textContent.substring(0, 50)}`
-            )
+            {
+                role: 'researcher',
+                deterministicId: BaseEvent.generateDeterministicId(
+                    threadId!,
+                    checkpointId,
+                    nodeName,
+                    `chat-${textContent.substring(0, 50)}`
+                )
+            }
         );
         chatEvent.setMessage(textContent);
         // 设置 parentId 为 researcher GroupEvent 的 id

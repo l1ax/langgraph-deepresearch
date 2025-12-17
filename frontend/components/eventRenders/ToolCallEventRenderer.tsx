@@ -118,8 +118,9 @@ function getToolDisplayName(toolName: string): string {
  * 用于展示工具调用信息
  */
 export const ToolCallEventRenderer = observer(
-  ({ data, status, roleName: _roleName, className }: EventRendererProps<ToolCallEvent.IData>) => {
-    const { tool_name, tool_arguments, tool_result } = data;
+  ({ event, className }: EventRendererProps<ToolCallEvent>) => {
+    const { tool_name, tool_arguments, tool_result } = event.content.data;
+    const status = event.status;
     const [isExpanded, setIsExpanded] = useState(false);
 
     const isPending = status === 'pending';

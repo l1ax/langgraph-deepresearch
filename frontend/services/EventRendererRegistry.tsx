@@ -1,14 +1,10 @@
 import React from 'react';
-import { BaseEvent, AnyEvent } from '@/stores';
+import { AnyEvent, BaseEvent } from '@/stores';
 
 /** 事件渲染器组件 Props */
-export interface EventRendererProps<T = unknown> {
-  /** 事件数据 */
-  data: T;
-  /** 事件状态 */
-  status: BaseEvent.EventStatus;
-  /** 角色名称 */
-  roleName: BaseEvent.RoleName;
+export interface EventRendererProps<E extends AnyEvent = AnyEvent> {
+  /** 事件对象 */
+  event: E;
   /** 自定义类名 */
   className?: string;
   /** 子节点 (用于 GroupEvent) */
@@ -18,7 +14,7 @@ export interface EventRendererProps<T = unknown> {
 }
 
 /** 事件渲染器组件类型 */
-export type EventRenderer<T = unknown> = React.ComponentType<EventRendererProps<T>>;
+export type EventRenderer<E extends AnyEvent = AnyEvent> = React.ComponentType<EventRendererProps<E>>;
 
 /**
  * EventRendererRegistry
@@ -26,15 +22,15 @@ export type EventRenderer<T = unknown> = React.ComponentType<EventRendererProps<
  * 渲染器按 subType 注册，获取时根据 eventType 解析 subType 后查找
  */
 class EventRendererRegistryClass {
-  private renderers: Map<BaseEvent.SubType, EventRenderer<unknown>> = new Map();
+  private renderers: Map<BaseEvent.SubType, EventRenderer> = new Map();
 
   /**
    * 注册渲染器
    * @param subType 事件子类型
    * @param renderer 渲染器组件
    */
-  register<T>(subType: BaseEvent.SubType, renderer: EventRenderer<T>): void {
-    this.renderers.set(subType, renderer as EventRenderer<unknown>);
+  register<E extends AnyEvent>(subType: BaseEvent.SubType, renderer: EventRenderer<E>): void {
+    this.renderers.set(subType, renderer as EventRenderer);
   }
 
   /**
@@ -42,8 +38,8 @@ class EventRendererRegistryClass {
    * @param subType 事件子类型
    * @returns 渲染器组件，如果未注册则返回 undefined
    */
-  get<T>(subType: BaseEvent.SubType): EventRenderer<T> | undefined {
-    return this.renderers.get(subType) as EventRenderer<T> | undefined;
+  get(subType: BaseEvent.SubType): EventRenderer | undefined {
+    return this.renderers.get(subType);
   }
 
   /**
@@ -87,6 +83,6 @@ export const EventView: React.FC<{
     return null;
   }
 
-  return <Renderer data={event.content.data} status={event.status} roleName={event.roleName} className={className} />;
+  return <Renderer event={event} className={className} />;
 };
 

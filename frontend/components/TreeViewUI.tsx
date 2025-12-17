@@ -5,7 +5,7 @@ import { observer } from 'mobx-react-lite';
 import { TreeView, TreeViewEventNode } from '@/stores/views/treeViews';
 import { EventView } from '@/services';
 import { cn } from '@/lib/utils';
-import { GroupEventRenderer } from './GroupEventRenderer';
+import { GroupEventRenderer } from './eventRenders/GroupEventRenderer';
 
 /**
  * TreeViewUI - Displays the thought process / execution tree
@@ -39,9 +39,7 @@ const EventNodeRenderer = observer<{
 
       return (
         <GroupEventRenderer
-          data={{}}
-          status={event.status}
-          roleName={event.roleName}
+          event={event}
           childCount={children.length}
         >
           {renderedChildren}

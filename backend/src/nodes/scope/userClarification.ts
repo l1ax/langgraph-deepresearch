@@ -41,7 +41,10 @@ export const clarifyWithUser = traceable(async (
       ? BaseEvent.generateDeterministicId(threadId, checkpointId, NODE_NAME, '/human/chat', 0)
       : undefined;
     
-    const userChatEvent = new ChatEvent('human', humanEventId);
+    const userChatEvent = new ChatEvent({
+      role: 'human',
+      deterministicId: humanEventId
+    });
     userChatEvent.setMessage(userMessage.content as string);
     userChatEvent.setStatus('finished');
 

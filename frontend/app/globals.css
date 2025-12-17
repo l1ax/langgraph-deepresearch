@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@heroui/styles"; 
+@import '@xyflow/react/dist/style.css';
+
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
@@ -40,18 +42,24 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  
   /* Prompter Colors */
-    --color-prompter-bg: var(--prompter-bg);
+  --color-prompter-bg: var(--prompter-bg);
     --color-prompter-border: var(--prompter-border);
+/* New Glass & Shadow Utilities defined via CSS variables but exposed here if needed */
+  --box-shadow-glass: var(--shadow-glass);
+  --box-shadow-glass-hover: var(--shadow-glass-hover);
+  --box-shadow-glow-blue: var(--shadow-glow-blue);
 }
 
 :root {
   --radius: 0.75rem;
-/* Soothing Slate Light Mode (Default) */
+/* --- Refined Palette: "Techno-Organic" / Clean Slate --- */
+
+  /* Main Background: Clean, premium slate */
   --background: #F8FAFC;
-  /* Slate-50 */
-  --foreground: #334155;
-  /* Slate-700 */
+  --foreground: #0F172A;
+    /* Darker, sharper text */
 
   --card: #FFFFFF;
   --card-foreground: #334155;
@@ -59,85 +67,91 @@
   --popover: #FFFFFF;
   --popover-foreground: #334155;
 
-  --primary: #3B82F6;
-  /* Blue-500 */
+  /* Primary: Google Blue - Vibrant but accessible */
+    --primary: #1A73E8;
   --primary-foreground: #FFFFFF;
 
   --secondary: #F1F5F9;
-  /* Slate-100 */
-  --secondary-foreground: #334155;
+  --secondary-foreground: #475569;
 
-  --muted: #F1F5F9;
+  --muted: #F8FAFC;
   --muted-foreground: #64748B;
-  /* Slate-500 */
 
-  --accent: #E2E8F0;
-  /* Slate-200 */
-  --accent-foreground: #334155;
+  --accent: #F1F5F9;
+  --accent-foreground: #1E293B;
 
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
 
   --border: #E2E8F0;
-  /* Slate-200 */
   --input: #F1F5F9;
-  --ring: #3B82F6;
+  --ring: #1A73E8;
 
-  /* Sidebar - Soft Slate */
-  --sidebar: #e9eef6;
-  /* Slate-100 */
+  /* Sidebar: Glass-ready transparent base */
+    --sidebar: rgba(248, 250, 252, 0.8);
   --sidebar-foreground: #475569;
-  /* Slate-600 */
-  --sidebar-primary: #3B82F6;
+  --sidebar-primary: #1A73E8;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #E2E8F0;
-  --sidebar-accent-foreground: #334155;
-  --sidebar-border: #E2E8F0;
-  --sidebar-ring: #3B82F6;
+  --sidebar-accent: rgba(226, 232, 240, 0.6);
+  --sidebar-accent-foreground: #1E293B;
+  --sidebar-border: rgba(226, 232, 240, 0.5);
+    --sidebar-ring: #1A73E8;
 
-  /* Prompter Specific */
-  --prompter-bg: #FFFFFF;
+  /* Enhanced Shadows & Glows */
+    --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+    --shadow-glass-hover: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+    --shadow-glow-blue: 0 0 20px rgba(26, 115, 232, 0.4);
+    --shadow-elevation-1: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+    --shadow-elevation-2: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+  
+    /* Prompter */
+  --prompter-bg: rgba(255, 255, 255, 0.9);
   --prompter-border: #E2E8F0;
 }
 
-/* Dark Mode Overrides */
+/* Dark Mode Overrides - Deep Space Feel */
 .dark {
-  --background: #131314;
-    --foreground: #E3E3E3;
+  --background: #0F172A;
+    /* Deep slate blue, not pitch black */
+    --foreground: #E2E8F0;
   
-    --card: #1E1F20;
-    --card-foreground: #E3E3E3;
+  --card: #1E293B;
+    --card-foreground: #E2E8F0;
   
-    --popover: #1E1F20;
-    --popover-foreground: #E3E3E3;
+  --popover: #1E293B;
+    --popover-foreground: #E2E8F0;
   
-    --primary: #A8C7FA;
-    --primary-foreground: #04080F;
+  --primary: #8AB4F8;
+    /* Google Dark Mode Blue */
+    --primary-foreground: #0F172A;
   
-    --secondary: #28292A;
-    --secondary-foreground: #E3E3E3;
+  --secondary: #1E293B;
+  --secondary-foreground: #E2E8F0;
   
-    --muted: #28292A;
-    --muted-foreground: #C4C7C5;
+  --muted: #1E293B;
+  --muted-foreground: #94A3B8;
   
-    --accent: #28292A;
-    --accent-foreground: #E3E3E3;
+  --accent: #1E293B;
+  --accent-foreground: #F8FAFC;
   
-    --border: #444746;
-    --input: #28292A;
-    --ring: #A8C7FA;
+  --border: #334155;
+    --input: #1E293B;
+  --ring: #8AB4F8;
   
-    --sidebar: #0E0E0F;
-    --sidebar-foreground: #E3E3E3;
-    --sidebar-primary: #A8C7FA;
-    --sidebar-primary-foreground: #04080F;
-    --sidebar-accent: #28292A;
-    --sidebar-accent-foreground: #E3E3E3;
-    --sidebar-border: #1E1F20;
-    --sidebar-ring: #A8C7FA;
+  --sidebar: rgba(15, 23, 42, 0.8);
+    --sidebar-foreground: #CBD5E1;
+  --sidebar-primary: #8AB4F8;
+    --sidebar-primary-foreground: #0F172A;
+  --sidebar-accent: rgba(30, 41, 59, 0.6);
+    --sidebar-accent-foreground: #F8FAFC;
+  --sidebar-border: rgba(51, 65, 85, 0.5);
+    --sidebar-ring: #8AB4F8;
   
-    --prompter-bg: #1E1F20;
-    --prompter-border: #444746;
+    --prompter-bg: rgba(30, 41, 59, 0.9);
+      --prompter-border: #334155;
+      --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      --shadow-glass-hover: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+      --shadow-glow-blue: 0 0 25px rgba(138, 180, 248, 0.3);
 }
 
 @layer base {
@@ -145,15 +159,36 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground antialiased tracking-tight;
+    }
+    
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      @apply tracking-tight font-medium;
   }
 }
 
 /* Utility for text gradients often used in Gemini */
 .text-gradient-gemini {
-  background: linear-gradient(74deg, #4285F4 0%, #9B72CB 9%, #D96570 14%, #D96570 79%, #9B72CB 86%, #4285F4 100%);
+  background: linear-gradient(74deg, #1A73E8 0%, #9B72CB 9%, #D96570 14%, #D96570 79%, #9B72CB 86%, #1A73E8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   color: transparent;
+}
+
+/* Custom Glass Utilities */
+.glass-panel {
+  @apply bg-sidebar backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-[var(--shadow-glass)];
+}
+
+.glass-card {
+  @apply bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md border border-white/40 dark:border-white/5 shadow-sm hover:shadow-[var(--shadow-glass-hover)] transition-all duration-300;
+}
+.glow-effect {
+  @apply shadow-[var(--shadow-glow-blue)] border-primary/50;
 }

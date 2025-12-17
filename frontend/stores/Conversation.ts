@@ -6,6 +6,7 @@ import { Executor } from './Executor';
 import { apiService, StoredEvent } from '@/services/api';
 import {Client, Run, Thread} from '@langchain/langgraph-sdk';
 import {userStore} from './User';
+import data from './data.json';
 
 const LANGGRAPH_API_URL =
   process.env.NEXT_PUBLIC_LANGGRAPH_API_URL || 'http://localhost:2024';
@@ -215,6 +216,7 @@ export class Conversation {
 
     // 转换数据库 events 为 IEventData 格式
     const events = dbEvents.map(e => this.convertStoredEventToEventData(e));
+    // const events = data.map(e => this.convertStoredEventToEventData(e));
 
     if (events.length > 0) {
       this.restoreFromEvents(events);

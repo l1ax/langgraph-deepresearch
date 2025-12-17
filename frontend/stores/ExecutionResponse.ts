@@ -1,6 +1,7 @@
 import { observable, action, makeObservable } from 'mobx';
 import { AnyEvent } from './events';
 import { TreeView } from './views/treeViews';
+import {WorkflowViews} from './views/workflowViews';
 
 /**
  * ExecutionResponse 类
@@ -13,15 +14,16 @@ export class ExecutionResponse {
 
   /** 本次执行的 treeView */
   @observable
-  treeView: TreeView;
+  treeView: TreeView = new TreeView();
+
+  @observable
+  WorkflowView: WorkflowViews = new WorkflowViews();
 
   /** 执行是否完成 */
   @observable
   isCompleted: boolean = false;
 
   constructor() {
-    makeObservable(this);
-    this.treeView = new TreeView();
   }
 
   /** 添加或更新事件 */
@@ -52,6 +54,7 @@ export class ExecutionResponse {
 
     // 更新 treeView（使用可能已聚合后的event）
     this.treeView.upsertEvent(event);
+    this.WorkflowView.transformEventsToViews([event]);
   }
 
   /** 标记执行完成 */

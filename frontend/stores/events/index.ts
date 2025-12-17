@@ -28,6 +28,7 @@ export function createEventFromData(data: BaseEvent.IEventData<unknown>): AnyEve
     case 'brief':
       return new BriefEvent(data as BaseEvent.IEventData<BriefEvent.IData>);
     case 'chat':
+    case 'report_generation':
       return new ChatEvent(data as BaseEvent.IEventData<ChatEvent.IData>);
     case 'tool_call':
       return new ToolCallEvent(data as BaseEvent.IEventData<ToolCallEvent.IData>);
@@ -48,7 +49,7 @@ export function isBriefEvent(event: AnyEvent): event is BriefEvent {
 }
 
 export function isChatEvent(event: AnyEvent): event is ChatEvent {
-  return event.subType === 'chat';
+  return event.subType === 'chat' || event.subType === 'report_generation';
 }
 
 export function isToolCallEvent(event: AnyEvent): event is ToolCallEvent {

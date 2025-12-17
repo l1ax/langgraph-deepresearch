@@ -82,7 +82,10 @@ export const supervisor = traceable(async (state: typeof StateAnnotation.State, 
         const chatEventId = threadId
             ? BaseEvent.generateDeterministicId(threadId, checkpointId, NODE_NAME, '/supervisor/chat', iteration)
             : undefined;
-        const chatEvent = new ChatEvent('supervisor', chatEventId);
+        const chatEvent = new ChatEvent({
+          role: 'supervisor',
+          deterministicId: chatEventId
+        });
         chatEvent.setMessage(textContent);
         // 设置 parentId 为 supervisor GroupEvent 的 id
         chatEvent.setParentId(supervisorGroupId);

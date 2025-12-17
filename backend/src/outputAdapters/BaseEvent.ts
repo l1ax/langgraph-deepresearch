@@ -101,7 +101,7 @@ export namespace BaseEvent {
     /** 
      * 基础事件子类型
      */
-    export type BaseEventSubType = 'clarify' | 'brief' | 'chat' | 'tool_call' | 'group';
+    export type BaseEventSubType = 'clarify' | 'brief' | 'chat' | 'report_generation' | 'tool_call' | 'group';
 
     /** 
      * 事件类型，格式为 /{roleName}/{type}

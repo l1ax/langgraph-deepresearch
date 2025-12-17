@@ -48,13 +48,16 @@ export const finalReportGeneration = traceable(async (
     const nodeName = 'finalReportGeneration';
 
     const chatEvent = new ChatEvent(
-        'ai',
-        BaseEvent.generateDeterministicId(
-            threadId!,
-            checkpointId,
-            nodeName,
-            'final-report-chat'
-        )
+        {
+            role: 'ai',
+            subType: 'report_generation',
+            deterministicId: BaseEvent.generateDeterministicId(
+                threadId!,
+                checkpointId,
+                nodeName,
+                'final-report-chat'
+            )
+        }
     );
     chatEvent.setMessage('报告生成中...');
     if (config.writer) {

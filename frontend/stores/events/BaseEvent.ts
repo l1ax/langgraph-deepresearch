@@ -52,7 +52,7 @@ export namespace BaseEvent {
   export type RoleName = 'ai' | 'supervisor' | 'researcher' | 'human';
 
   /** 基础事件子类型 */
-  export type SubType = 'clarify' | 'brief' | 'chat' | 'tool_call' | 'group';
+  export type SubType = 'clarify' | 'brief' | 'chat' | 'report_generation' | 'tool_call' | 'group';
 
   /** 事件类型，格式为 /{roleName}/{subType} */
   export type EventType = `/${RoleName}/${SubType}`;

@@ -1,9 +1,30 @@
+import {observable} from 'mobx';
 import { BaseEvent } from './BaseEvent';
 
 /**
- * 聊天事件
+ * 简单的输出事件
  */
 export class ChatEvent extends BaseEvent<ChatEvent.IContent> {
+  static create(params: {
+    id: string;
+    message: string;
+    subType: 'chat' | 'report_generation';
+    roleName: BaseEvent.RoleName;
+    status: BaseEvent.EventStatus;
+  }): ChatEvent {
+    const { id, message, subType = 'chat', roleName = 'ai', status = 'finished' } = params;
+
+    return new ChatEvent({
+      id,
+      eventType: BaseEvent.createEventType(roleName, subType),
+      status,
+      content: {
+        contentType: 'text',
+        data: { message },
+      },
+    });
+  }
+
   content: ChatEvent.IContent;
 
   constructor(data: BaseEvent.IEventData<ChatEvent.IData>) {
@@ -14,26 +35,6 @@ export class ChatEvent extends BaseEvent<ChatEvent.IContent> {
   /** 消息内容 */
   get message(): string {
     return this.content.data.message;
-  }
-
-  /**
-   * 创建 ChatEvent（前端本地创建，用于欢迎消息、错误消息等）
-   */
-  static create(
-    id: string,
-    message: string,
-    roleName: BaseEvent.RoleName = 'ai',
-    status: BaseEvent.EventStatus = 'finished'
-  ): ChatEvent {
-    return new ChatEvent({
-      id,
-      eventType: BaseEvent.createEventType(roleName, 'chat'),
-      status,
-      content: {
-        contentType: 'text',
-        data: { message },
-      },
-    });
   }
 }
 
@@ -46,4 +47,5 @@ export namespace ChatEvent {
     data: IData;
   }
 }
+
 

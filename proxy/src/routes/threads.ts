@@ -137,11 +137,10 @@ router.post('/:threadId/runs/stream', async (req, res) => {
         }
 
         console.log(`[Proxy] Stream completed for thread ${threadId}, events: ${eventCount}`);
-
+        res.end();
         // 流结束，确保所有事件都已保存
         await eventPersistence.flush();
 
-        res.end();
     } catch (error) {
         console.error('[Proxy] Stream error:', error);
 

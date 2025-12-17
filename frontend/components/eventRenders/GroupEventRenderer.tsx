@@ -12,7 +12,9 @@ import { ChevronDown, ChevronRight, Loader2, Sparkles, UserCog, Users } from 'lu
  * 渲染 group 事件的 UI，包括可折叠的 header 和子节点
  */
 export const GroupEventRenderer = observer(
-  ({ status, roleName, className, children, childCount = 0 }: EventRendererProps<GroupEvent.IData>) => {
+  ({ event, className, children, childCount = 0 }: EventRendererProps<GroupEvent>) => {
+    const status = event.status;
+    const roleName = event.roleName;
     const [isExpanded, setIsExpanded] = useState(false);
     const isLoading = status === 'running' || status === 'pending';
     const hasChildren = childCount > 0;

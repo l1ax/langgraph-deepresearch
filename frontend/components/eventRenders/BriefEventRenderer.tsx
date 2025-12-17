@@ -14,9 +14,10 @@ import { Streamdown } from 'streamdown';
  * 用于展示研究概要信息
  */
 export const BriefEventRenderer = observer(
-  ({ data, status, roleName: _roleName, className }: EventRendererProps<BriefEvent.IData>) => {
+  ({ event, className }: EventRendererProps<BriefEvent>) => {
+    const status = event.status;
     // 解析可能不完整的JSON字符串
-    const parsedData = parseIncompleteJson<BriefEvent.IData>(data as BriefEvent.IData | string);
+    const parsedData = parseIncompleteJson<BriefEvent.IData>(event.content.data as BriefEvent.IData | string);
     const { research_brief, research_brief_reasoning } = parsedData;
 
     const isPending = status === 'pending';

@@ -12,8 +12,13 @@ export class ChatEvent extends BaseEvent<ChatEvent.IContent> {
      * @param role 角色名称
      * @param deterministicId 可选的确定性 ID
      */
-    constructor(role: BaseEvent.RoleName, deterministicId?: string) {
-        super(BaseEvent.createEventType(role, 'chat'), deterministicId);
+    constructor(params: {
+        role: BaseEvent.RoleName;
+        deterministicId?: string;
+        subType?: 'chat' | 'report_generation';
+    }) {
+        const { role, deterministicId, subType = 'chat' } = params;
+        super(BaseEvent.createEventType(role, subType), deterministicId);
     }
 
     /** 设置消息内容 */
