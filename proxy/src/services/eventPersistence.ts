@@ -96,31 +96,46 @@ class EventPersistenceService {
             await client.query('BEGIN');
 
             for (const { threadId, eventData } of events) {
-                // 获取当前最大 sequence，如果不存在则从 0 开始
+              // 先检查事件是否已存在
+              const existingEvent = await client.query(
+                'SELECT sequence FROM "Event" WHERE id = $1',
+                [eventData.id]
+              );
+
+              if (existingEvent.rows.length > 0) {
+                // 事件已存在，只更新 status 和 content，保留原有 sequence
+                await client.query(
+                  `UPDATE "Event" 
+                         SET status = $1, content = $2, "updatedAt" = NOW()
+                         WHERE id = $3`,
+                  [
+                    eventData.status,
+                    JSON.stringify(eventData.content),
+                    eventData.id,
+                  ]
+                );
+              } else {
+                // 新事件，获取下一个 sequence 并插入
                 const maxSeqResult = await client.query(
-                    'SELECT COALESCE(MAX(sequence), -1) as max_seq FROM "Event" WHERE "threadId" = $1',
-                    [threadId]
+                  'SELECT COALESCE(MAX(sequence), -1) as max_seq FROM "Event" WHERE "threadId" = $1',
+                  [threadId]
                 );
                 const nextSequence = maxSeqResult.rows[0].max_seq + 1;
 
                 await client.query(
-                    `INSERT INTO "Event" (id, "threadId", "eventType", status, content, "parentId", sequence, "createdAt", "updatedAt")
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-                     ON CONFLICT (id)
-                     DO UPDATE SET
-                       status = EXCLUDED.status,
-                       content = EXCLUDED.content,
-                       "updatedAt" = NOW()`,
-                    [
-                        eventData.id,
-                        threadId,
-                        eventData.eventType,
-                        eventData.status,
-                        JSON.stringify(eventData.content),
-                        eventData.parentId || null,
-                        nextSequence
-                    ]
+                  `INSERT INTO "Event" (id, "threadId", "eventType", status, content, "parentId", sequence, "createdAt", "updatedAt")
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())`,
+                  [
+                    eventData.id,
+                    threadId,
+                    eventData.eventType,
+                    eventData.status,
+                    JSON.stringify(eventData.content),
+                    eventData.parentId || null,
+                    nextSequence,
+                  ]
                 );
+              }
             }
 
             await client.query('COMMIT');

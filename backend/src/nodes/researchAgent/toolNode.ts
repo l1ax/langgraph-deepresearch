@@ -38,19 +38,20 @@ export const researchToolNode = traceable(async (
         // 获取 researcher_group_id
         const researcherGroupId = state.researcher_group_id;
         const threadId = config?.configurable?.thread_id as string | undefined;
-        const checkpointId = config?.configurable?.checkpoint_id as string | undefined;
+        const runId = (config?.configurable?.run_id ||
+          config?.metadata?.run_id) as string | undefined;
         const nodeName = 'researchToolNode';
 
         for (const toolCall of lastMessage.tool_calls) {
             const toolCallId = toolCall.id || '';
             const event = new ToolCallEvent(
-                'researcher',
-                BaseEvent.generateDeterministicId(
-                    threadId!,
-                    checkpointId,
-                    nodeName,
-                    `tool-call-${toolCall.name}-${toolCallId}`
-                )
+              'researcher',
+              BaseEvent.generateDeterministicId(
+                threadId!,
+                runId,
+                nodeName,
+                `tool-call-${toolCall.name}-${toolCallId}`
+              )
             );
             event.setToolCall(
                 toolCall.name,

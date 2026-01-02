@@ -25,11 +25,11 @@ export class Conversation {
     const response: Response = await fetch(`${LANGGRAPH_API_URL}/threads`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         metadata: {},
         userId: userStore.currentUser.id,
-        title: title
-      })
+        title: title,
+      }),
     });
 
     if (!response.ok) {
@@ -63,7 +63,8 @@ export class Conversation {
 
   client: Client = new Client({ apiUrl: LANGGRAPH_API_URL });
 
-  threadState: ThreadState<{events: Array<BaseEvent.IEventData>}> | null = null;
+  threadState: ThreadState<{ events: Array<BaseEvent.IEventData> }> | null =
+    null;
 
   dispose = action(() => {
     this.executor.dispose();
@@ -119,7 +120,9 @@ export class Conversation {
 
   /** 将 ExecutionResponse 包装成 AssistantElement 并添加到 elements */
   @action.bound
-  addExecutionResponse(executionResponse: ExecutionResponse): Conversation.AssistantElement {
+  addExecutionResponse(
+    executionResponse: ExecutionResponse
+  ): Conversation.AssistantElement {
     const element: Conversation.AssistantElement = {
       id: `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       role: 'assistant',
@@ -145,7 +148,10 @@ export class Conversation {
         // 如果是 human 的 chat 事件
         if (isChatEvent(event) && event.roleName === 'human') {
           // 如果有待处理的 AI 事件（上一轮对话的 AI 回复），先将它们包装成 assistantElement
-          if (currentExecutionResponse && currentExecutionResponse.events.length > 0) {
+          if (
+            currentExecutionResponse &&
+            currentExecutionResponse.events.length > 0
+          ) {
             this.addExecutionResponse(currentExecutionResponse);
           }
 
@@ -167,7 +173,10 @@ export class Conversation {
     }
 
     // 处理最后一轮对话的 AI 回复（如果有）
-    if (currentExecutionResponse && currentExecutionResponse.events.length > 0) {
+    if (
+      currentExecutionResponse &&
+      currentExecutionResponse.events.length > 0
+    ) {
       currentExecutionResponse.markCompleted();
       this.addExecutionResponse(currentExecutionResponse);
     }
@@ -180,21 +189,22 @@ export class Conversation {
       this.isLoading = true;
 
       // 直接调用 LangGraph backend API 获取线程状态
-      const state: ThreadState<{events: Array<BaseEvent.IEventData>}> = yield this.client.threads.getState(threadId);
+      const state: ThreadState<{ events: Array<BaseEvent.IEventData> }> =
+        yield this.client.threads.getState(threadId);
 
       this.threadState = state;
-    }
-    catch (error) {
+    } catch (error) {
       console.error('Failed to restore basic data:', error);
       throw error;
-    }
-    finally {
+    } finally {
       this.isLoading = false;
     }
   }
 
   /** 将数据库存储的事件转换为 BaseEvent.IEventData 格式 */
-  private convertStoredEventToEventData(storedEvent: StoredEvent): BaseEvent.IEventData {
+  private convertStoredEventToEventData(
+    storedEvent: StoredEvent
+  ): BaseEvent.IEventData {
     return {
       id: storedEvent.id,
       eventType: storedEvent.eventType as BaseEvent.EventType,
@@ -204,6 +214,65 @@ export class Conversation {
     };
   }
 
+  /** 比较事件状态优先级，finished > error > running > pending */
+  private getStatusPriority(status: BaseEvent.EventStatus): number {
+    const priorities: Record<BaseEvent.EventStatus, number> = {
+      pending: 0,
+      running: 1,
+      error: 2,
+      finished: 3,
+    };
+    return priorities[status] ?? 0;
+  }
+
+  /** 合并数据库事件和 state 事件，相同 id 取状态更新的版本 */
+  private mergeEvents(
+    dbEvents: BaseEvent.IEventData[],
+    stateEvents: BaseEvent.IEventData[]
+  ): BaseEvent.IEventData[] {
+    const eventMap = new Map<string, BaseEvent.IEventData>();
+
+    // 先添加数据库事件
+    for (const event of dbEvents) {
+      eventMap.set(event.id, event);
+    }
+
+    // 再用 state 事件覆盖（如果状态更新）
+    for (const event of stateEvents) {
+      const existing = eventMap.get(event.id);
+      if (!existing) {
+        eventMap.set(event.id, event);
+      } else {
+        // 比较状态优先级，取更高的
+        if (
+          this.getStatusPriority(event.status) >=
+          this.getStatusPriority(existing.status)
+        ) {
+          eventMap.set(event.id, event);
+        }
+      }
+    }
+
+    // 按原始数据库顺序返回（保持 sequence 顺序）
+    const result: BaseEvent.IEventData[] = [];
+    const addedIds = new Set<string>();
+
+    // 先按数据库顺序添加
+    for (const event of dbEvents) {
+      result.push(eventMap.get(event.id)!);
+      addedIds.add(event.id);
+    }
+
+    // 添加只在 state 中存在的事件（数据库还没持久化的新事件）
+    for (const event of stateEvents) {
+      if (!addedIds.has(event.id)) {
+        result.push(eventMap.get(event.id)!);
+      }
+    }
+
+    return result;
+  }
+
   @flow.bound
   *restoreChatHistoryByThreadId(threadId: string) {
     // 从数据库获取 events（Proxy 已自动持久化）
@@ -211,15 +280,26 @@ export class Conversation {
     try {
       dbEvents = yield apiService.getEventsByThread(threadId);
     } catch (error) {
-      console.warn('[Conversation] Failed to fetch events from database:', error);
+      console.warn(
+        '[Conversation] Failed to fetch events from database:',
+        error
+      );
     }
 
     // 转换数据库 events 为 IEventData 格式
-    const events = dbEvents.map(e => this.convertStoredEventToEventData(e));
-    // const events = data.map(e => this.convertStoredEventToEventData(e));
+    const dbEventData = dbEvents.map((e) =>
+      this.convertStoredEventToEventData(e)
+    );
 
-    if (events.length > 0) {
-      this.restoreFromEvents(events);
+    // 获取 threadState 中的 events（LangGraph 的最新状态）
+    const stateEvents: BaseEvent.IEventData[] =
+      this.threadState?.values?.events || [];
+
+    // 合并事件：相同 id 取状态更完成的版本
+    const mergedEvents = this.mergeEvents(dbEventData, stateEvents);
+
+    if (mergedEvents.length > 0) {
+      this.restoreFromEvents(mergedEvents);
     }
 
     // 如果有未完成的节点（用户中途退出），检查是否有活跃的 run 需要恢复

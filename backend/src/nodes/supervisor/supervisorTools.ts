@@ -83,183 +83,193 @@ export const supervisorTools = traceable(async (
         const supervisorGroupId = state.supervisor_group_id;
 
         const threadId = config?.configurable?.thread_id as string | undefined;
-        const checkpointId = config?.configurable?.checkpoint_id as string | undefined;
+        const runId = (config?.configurable?.run_id ||
+          config?.metadata?.run_id) as string | undefined;
         const nodeName = 'supervisorTools';
 
         for (const toolCall of toolCalls) {
-            // ConductResearch 调用不创建 ToolCallEvent，直接用 research group展示
-            if (toolCall.name === 'ConductResearch') {
-                continue;
-            }
+          // ConductResearch 调用不创建 ToolCallEvent，直接用 research group展示
+          if (toolCall.name === 'ConductResearch') {
+            continue;
+          }
 
-            const toolCallId = toolCall.id || '';
-            const event = new ToolCallEvent(
-                'supervisor',
-                BaseEvent.generateDeterministicId(
-                    threadId!,
-                    checkpointId,
-                    nodeName,
-                    `tool-call-${toolCall.name}-${toolCallId}`
-                )
-            );
-            event.setToolCall(
-                toolCall.name,
-                toolCall.args,
-                toolCallId
-            );
+          const toolCallId = toolCall.id || '';
+          const event = new ToolCallEvent(
+            'supervisor',
+            BaseEvent.generateDeterministicId(
+              threadId!,
+              runId,
+              nodeName,
+              `tool-call-${toolCall.name}-${toolCallId}`
+            )
+          );
+          event.setToolCall(toolCall.name, toolCall.args, toolCallId);
 
-            // 设置 parentId 为 supervisor GroupEvent 的 id
-            if (supervisorGroupId) {
-                event.setParentId(supervisorGroupId);
-            }
+          // 设置 parentId 为 supervisor GroupEvent 的 id
+          if (supervisorGroupId) {
+            event.setParentId(supervisorGroupId);
+          }
 
-            // 发送 running 状态
-            if (config?.writer) {
-                config.writer(event.setStatus('running').toJSON());
-            }
+          // 发送 running 状态
+          if (config?.writer) {
+            config.writer(event.setStatus('running').toJSON());
+          }
 
-            toolCallEventsMap.set(toolCallId, event);
-            eventsToAdd.push(event.toJSON());
+          toolCallEventsMap.set(toolCallId, event);
+          eventsToAdd.push(event.toJSON());
         }
 
         const thinkToolCalls = toolCalls.filter(
-            (toolCall: any) => toolCall.name === 'think_tool'
+          (toolCall: any) => toolCall.name === 'think_tool'
         );
 
         const conductResearchCalls = toolCalls.filter(
-            (toolCall: any) => toolCall.name === 'ConductResearch'
+          (toolCall: any) => toolCall.name === 'ConductResearch'
         );
 
         const researchCompleteCalls = toolCalls.filter(
-            (toolCall: any) => toolCall.name === 'ResearchComplete'
+          (toolCall: any) => toolCall.name === 'ResearchComplete'
         );
 
         for (const toolCall of thinkToolCalls) {
-            const observation = await thinkTool.invoke(toolCall.args);
-            const toolCallId = toolCall.id || '';
-            toolMessages.push(
-                new ToolMessage({
-                    content: String(observation),
-                    tool_call_id: toolCallId,
-                })
-            );
-            
-            const event = toolCallEventsMap.get(toolCallId);
-            if (event && config?.writer) {
-                event.setToolResult(observation);
-                config.writer(event.setStatus('finished').toJSON());
-            }
+          const observation = await thinkTool.invoke(toolCall.args);
+          const toolCallId = toolCall.id || '';
+          toolMessages.push(
+            new ToolMessage({
+              content: String(observation),
+              tool_call_id: toolCallId,
+            })
+          );
+
+          const event = toolCallEventsMap.get(toolCallId);
+          if (event && config?.writer) {
+            event.setToolResult(observation);
+            config.writer(event.setStatus('finished').toJSON());
+          }
         }
 
         for (const toolCall of researchCompleteCalls) {
-            const toolCallId = toolCall.id || '';
-            const resultContent = 'Research marked as complete';
-            toolMessages.push(
-                new ToolMessage({
-                    content: resultContent,
-                    tool_call_id: toolCallId,
-                })
-            );
-            shouldEnd = true;
-            
-            const event = toolCallEventsMap.get(toolCallId);
-            if (event && config?.writer) {
-                event.setToolResult(resultContent);
-                config.writer(event.setStatus('finished').toJSON());
-            }
+          const toolCallId = toolCall.id || '';
+          const resultContent = 'Research marked as complete';
+          toolMessages.push(
+            new ToolMessage({
+              content: resultContent,
+              tool_call_id: toolCallId,
+            })
+          );
+          shouldEnd = true;
+
+          const event = toolCallEventsMap.get(toolCallId);
+          if (event && config?.writer) {
+            event.setToolResult(resultContent);
+            config.writer(event.setStatus('finished').toJSON());
+          }
         }
 
         // 如果已经超过迭代次数，不再启动新的研究
         if (conductResearchCalls.length > 0 && !shouldEnd) {
-            const researchPromises = conductResearchCalls.map((toolCall: any, index: number) => {
-                const groupEvent = new GroupEvent(
-                    'researcher',
-                    BaseEvent.generateDeterministicId(
-                        threadId!,
-                        checkpointId,
-                        nodeName,
-                        `researcher-group-${toolCall.args.research_topic}-${index}`
-                    )
-                );
+          const researchPromises = conductResearchCalls.map(
+            (toolCall: any, index: number) => {
+              const groupEvent = new GroupEvent(
+                'researcher',
+                BaseEvent.generateDeterministicId(
+                  threadId!,
+                  runId,
+                  nodeName,
+                  `researcher-group-${toolCall.args.research_topic}-${index}`
+                )
+              );
 
-                // 设置 parentId 为 supervisor GroupEvent 的 id，使 researcher group event 被聚合到 supervisor group event 里
-                if (supervisorGroupId) {
-                    groupEvent.setParentId(supervisorGroupId);
-                }
+              // 设置 parentId 为 supervisor GroupEvent 的 id，使 researcher group event 被聚合到 supervisor group event 里
+              if (supervisorGroupId) {
+                groupEvent.setParentId(supervisorGroupId);
+              }
 
-                if (config?.writer) {
-                    config.writer(groupEvent.setStatus('running').toJSON());
-                }
+              if (config?.writer) {
+                config.writer(groupEvent.setStatus('running').toJSON());
+              }
 
-                eventsToAdd.push(groupEvent.toJSON());
+              eventsToAdd.push(groupEvent.toJSON());
 
-                return (researchAgentGraph as any).invoke({
+              return (researchAgentGraph as any)
+                .invoke(
+                  {
                     researcher_messages: [
-                        new HumanMessage({
-                            content: toolCall.args.research_topic,
-                        }),
+                      new HumanMessage({
+                        content: toolCall.args.research_topic,
+                      }),
                     ],
                     research_topic: toolCall.args.research_topic,
                     researcher_group_id: groupEvent.id,
-                }, config).then((result: any) => {
-                    if (config?.writer) {
-                        config.writer(groupEvent.setStatus('finished').toJSON());
-                    }
+                  },
+                  config
+                )
+                .then((result: any) => {
+                  if (config?.writer) {
+                    config.writer(groupEvent.setStatus('finished').toJSON());
+                  }
 
-                    return result;
-                }).catch((error: any) => {
-                    if (config?.writer) {
-                        config.writer(groupEvent.setStatus('error').toJSON());
-                    }
+                  return result;
+                })
+                .catch((error: any) => {
+                  if (config?.writer) {
+                    config.writer(groupEvent.setStatus('error').toJSON());
+                  }
 
-                    throw error;
+                  throw error;
                 });
-            });
-
-            const toolResults = await Promise.all(researchPromises);
-
-            // 每个子代理在 result.compressed_research 中返回压缩的研究结果
-            // 我们将此压缩的研究作为 ToolMessage 的内容写入，这允许
-            // 监督器稍后通过 get_notes_from_tool_calls() 检索这些结果
-            const researchToolMessages = toolResults.map((result: any, index: number) => {
-                const toolCall = conductResearchCalls[index];
-                const toolCallId = toolCall.id || '';
-                const resultContent = result.compressed_research || 'Error synthesizing research report';
-                
-                const event = toolCallEventsMap.get(toolCallId);
-                if (event && config?.writer) {
-                    event.setToolResult(resultContent);
-                    config.writer(event.setStatus('finished').toJSON());
-                }
-                
-                return new ToolMessage({
-                    content: resultContent,
-                    tool_call_id: toolCallId,
-                });
-            });
-
-            toolMessages.push(...researchToolMessages);
-
-            allRawNotes = toolResults
-                .map((result: any) => (result.raw_notes || []).join('\n'))
-                .filter((notes: string) => notes.length > 0);
-        } else if (conductResearchCalls.length > 0 && shouldEnd) {
-            for (const toolCall of conductResearchCalls) {
-                const toolCallId = toolCall.id || '';
-                const resultContent = 'Research iteration limit reached. Unable to conduct further research.';
-                toolMessages.push(
-                    new ToolMessage({
-                        content: resultContent,
-                        tool_call_id: toolCallId,
-                    })
-                );
-                
-                const event = toolCallEventsMap.get(toolCallId);
-                if (event && config?.writer) {
-                    event.setToolResult(resultContent);
-                    config.writer(event.setStatus('finished').toJSON());
-                }
             }
+          );
+
+          const toolResults = await Promise.all(researchPromises);
+
+          // 每个子代理在 result.compressed_research 中返回压缩的研究结果
+          // 我们将此压缩的研究作为 ToolMessage 的内容写入，这允许
+          // 监督器稍后通过 get_notes_from_tool_calls() 检索这些结果
+          const researchToolMessages = toolResults.map(
+            (result: any, index: number) => {
+              const toolCall = conductResearchCalls[index];
+              const toolCallId = toolCall.id || '';
+              const resultContent =
+                result.compressed_research ||
+                'Error synthesizing research report';
+
+              const event = toolCallEventsMap.get(toolCallId);
+              if (event && config?.writer) {
+                event.setToolResult(resultContent);
+                config.writer(event.setStatus('finished').toJSON());
+              }
+
+              return new ToolMessage({
+                content: resultContent,
+                tool_call_id: toolCallId,
+              });
+            }
+          );
+
+          toolMessages.push(...researchToolMessages);
+
+          allRawNotes = toolResults
+            .map((result: any) => (result.raw_notes || []).join('\n'))
+            .filter((notes: string) => notes.length > 0);
+        } else if (conductResearchCalls.length > 0 && shouldEnd) {
+          for (const toolCall of conductResearchCalls) {
+            const toolCallId = toolCall.id || '';
+            const resultContent =
+              'Research iteration limit reached. Unable to conduct further research.';
+            toolMessages.push(
+              new ToolMessage({
+                content: resultContent,
+                tool_call_id: toolCallId,
+              })
+            );
+
+            const event = toolCallEventsMap.get(toolCallId);
+            if (event && config?.writer) {
+              event.setToolResult(resultContent);
+              config.writer(event.setStatus('finished').toJSON());
+            }
+          }
         }
     } catch (error) {
         console.error('Error in supervisor tools:', error);

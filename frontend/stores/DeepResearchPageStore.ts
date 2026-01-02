@@ -138,7 +138,10 @@ export class DeepResearchPageStore {
 
     try {
       // 如果当前有正在执行的会话，中止它
-      if (this.currentConversation && this.currentConversation !== conversation) {
+      if (
+        this.currentConversation &&
+        this.currentConversation !== conversation
+      ) {
         this.currentConversation.executor.abort();
       }
 
@@ -146,10 +149,12 @@ export class DeepResearchPageStore {
 
       this.currentConversation = conversation;
 
-      yield Promise.all([
-        flowResult(conversation.restoreBasicDataByThreadId(conversation.threadId)),
-        flowResult(conversation.restoreChatHistoryByThreadId(conversation.threadId))
-      ]);
+      yield flowResult(
+        conversation.restoreBasicDataByThreadId(conversation.threadId)
+      );
+      yield flowResult(
+        conversation.restoreChatHistoryByThreadId(conversation.threadId)
+      );
     } catch (error) {
       console.error('Failed to switch conversation:', error);
     } finally {
@@ -177,11 +182,23 @@ export class DeepResearchPageStore {
     this.deletingConversationIds.add(threadId);
     
     try {
+      // 找到要删除的会话
+      const conversation = this.conversations.find(
+        (c) => c.threadId === threadId
+      );
+
+      // 中断正在进行的请求并清理资源
+      if (conversation) {
+        conversation.dispose(); // dispose 内部会调用 executor.abort()
+      }
+
       // 从数据库删除
       yield flowResult(apiService.deleteThread(threadId));
 
       // 从本地列表移除
-      const index = this.conversations.findIndex(c => c.threadId === threadId);
+      const index = this.conversations.findIndex(
+        (c) => c.threadId === threadId
+      );
       if (index !== -1) {
         this.conversations.splice(index, 1);
       }

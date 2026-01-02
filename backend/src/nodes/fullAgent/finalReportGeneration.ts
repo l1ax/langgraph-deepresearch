@@ -44,21 +44,21 @@ export const finalReportGeneration = traceable(async (
     const findings = notes.join('\n\n');
 
     const threadId = config?.configurable?.thread_id as string | undefined;
-    const checkpointId = config?.configurable?.checkpoint_id as string | undefined;
+    const runId = (config?.configurable?.run_id || config?.metadata?.run_id) as
+      | string
+      | undefined;
     const nodeName = 'finalReportGeneration';
 
-    const chatEvent = new ChatEvent(
-        {
-            role: 'ai',
-            subType: 'report_generation',
-            deterministicId: BaseEvent.generateDeterministicId(
-                threadId!,
-                checkpointId,
-                nodeName,
-                'final-report-chat'
-            )
-        }
-    );
+    const chatEvent = new ChatEvent({
+      role: 'ai',
+      subType: 'report_generation',
+      deterministicId: BaseEvent.generateDeterministicId(
+        threadId!,
+        runId,
+        nodeName,
+        'final-report-chat'
+      ),
+    });
     chatEvent.setMessage('报告生成中...');
     if (config.writer) {
         config.writer(chatEvent.setStatus('running').toJSON());

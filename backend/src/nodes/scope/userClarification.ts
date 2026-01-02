@@ -31,35 +31,58 @@ export const clarifyWithUser = traceable(async (
   config: LangGraphRunnableConfig
 ): Promise<Command> => {
   const threadId = config.configurable?.thread_id as string | undefined;
-  const checkpointId = config.configurable?.checkpoint_id as string | undefined;
-  
+  const runId = (config.configurable?.run_id || config.metadata?.run_id) as
+    | string
+    | undefined;
+
+  console.log('[clarifyWithUser] DEBUG - threadId:', threadId, 'runId:', runId);
+
   // 获取用户的第一条消息并包装为 ChatEvent 存储
   const eventsToAdd: Record<string, unknown>[] = [];
   const userMessage = state.messages[0];
   if (userMessage && userMessage.getType() === 'human') {
-    const humanEventId = threadId 
-      ? BaseEvent.generateDeterministicId(threadId, checkpointId, NODE_NAME, '/human/chat', 0)
+    const humanEventId = threadId
+      ? BaseEvent.generateDeterministicId(
+          threadId,
+          runId,
+          NODE_NAME,
+          '/human/chat',
+          0
+        )
       : undefined;
-    
+
     const userChatEvent = new ChatEvent({
       role: 'human',
-      deterministicId: humanEventId
+      deterministicId: humanEventId,
     });
     userChatEvent.setMessage(userMessage.content as string);
     userChatEvent.setStatus('finished');
 
     // 直接存储到数据库（不通过 writer，避免前端重复渲染用户消息）
     if (threadId) {
-      await eventStore.upsertEvent(threadId, userChatEvent.toJSON()).catch(err => {
-        console.error('[clarifyWithUser] Failed to persist human chat event:', err);
-      });
+      await eventStore
+        .upsertEvent(threadId, userChatEvent.toJSON())
+        .catch((err) => {
+          console.error(
+            '[clarifyWithUser] Failed to persist human chat event:',
+            err
+          );
+        });
     }
 
-    eventsToAdd.push(userChatEvent.toJSON() as unknown as Record<string, unknown>);
+    eventsToAdd.push(
+      userChatEvent.toJSON() as unknown as Record<string, unknown>
+    );
   }
 
-  const clarifyEventId = threadId 
-    ? BaseEvent.generateDeterministicId(threadId, checkpointId, NODE_NAME, '/ai/clarify', 0)
+  const clarifyEventId = threadId
+    ? BaseEvent.generateDeterministicId(
+        threadId,
+        runId,
+        NODE_NAME,
+        '/ai/clarify',
+        0
+      )
     : undefined;
   
   const event = new ClarifyEvent(clarifyEventId);

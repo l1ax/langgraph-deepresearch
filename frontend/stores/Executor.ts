@@ -167,18 +167,6 @@ export class Executor {
     const currentExecutionResponse = executionResponse || new ExecutionResponse();
 
     try {
-      await fetch(`${LANGGRAPH_API_URL}/api/events/flush`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-    }
-    catch {
-      // 不阻塞join stream，继续执行
-    }
-
-    try {
       console.log(`[Executor] Joining run ${runId} for thread ${threadId}`);
 
       // 使用 joinStream 恢复

@@ -42,55 +42,75 @@ const supervisorModelWithTools = supervisorModel.bindTools(supervisorTools);
 
 export const supervisor = traceable(async (state: typeof StateAnnotation.State, config?: LangGraphRunnableConfig) => {
     const threadId = config?.configurable?.thread_id as string | undefined;
-    const checkpointId = config?.configurable?.checkpoint_id as string | undefined;
+    const runId = (config?.configurable?.run_id || config?.metadata?.run_id) as
+      | string
+      | undefined;
     const iteration = state.research_iterations || 0;
     
     let supervisorGroupId = state.supervisor_group_id;
     let supervisorEvent: GroupEvent | null = null;
     
     if (!supervisorGroupId) {
-        const groupEventId = threadId 
-            ? BaseEvent.generateDeterministicId(threadId, checkpointId, NODE_NAME, '/supervisor/group', 0)
-            : undefined;
-        supervisorEvent = new GroupEvent('supervisor', groupEventId);
-        supervisorGroupId = supervisorEvent.id;
-        if (config?.writer) {
-            config.writer(supervisorEvent.setStatus('running').toJSON());
-        }
+      const groupEventId = threadId
+        ? BaseEvent.generateDeterministicId(
+            threadId,
+            runId,
+            NODE_NAME,
+            '/supervisor/group',
+            0
+          )
+        : undefined;
+      supervisorEvent = new GroupEvent('supervisor', groupEventId);
+      supervisorGroupId = supervisorEvent.id;
+      if (config?.writer) {
+        config.writer(supervisorEvent.setStatus('running').toJSON());
+      }
     }
 
     const supervisorMessages = state.supervisor_messages || [];
 
     const systemPrompt = leadResearcherPrompt
-        .replace('{date}', getTodayStr())
-        .replace('{max_concurrent_research_units}', String(maxConcurrentResearchers))
-        .replace('{max_researcher_iterations}', String(maxResearcherIterations));
+      .replace('{date}', getTodayStr())
+      .replace(
+        '{max_concurrent_research_units}',
+        String(maxConcurrentResearchers)
+      )
+      .replace('{max_researcher_iterations}', String(maxResearcherIterations));
 
-    const messages = [new SystemMessage({ content: systemPrompt }), ...supervisorMessages];
+    const messages = [
+      new SystemMessage({ content: systemPrompt }),
+      ...supervisorMessages,
+    ];
 
     const response = await supervisorModelWithTools.invoke(messages, config);
 
     const eventsToAdd: BaseEvent.IJsonData[] = [];
 
     if (supervisorEvent) {
-        eventsToAdd.push(supervisorEvent.toJSON());
+      eventsToAdd.push(supervisorEvent.toJSON());
     }
 
     const textContent = extractContent(response.content);
     if (textContent && config?.writer) {
-        // 使用确定性 ID，iteration 用于区分不同次调用
-        const chatEventId = threadId
-            ? BaseEvent.generateDeterministicId(threadId, checkpointId, NODE_NAME, '/supervisor/chat', iteration)
-            : undefined;
-        const chatEvent = new ChatEvent({
-          role: 'supervisor',
-          deterministicId: chatEventId
-        });
-        chatEvent.setMessage(textContent);
-        // 设置 parentId 为 supervisor GroupEvent 的 id
-        chatEvent.setParentId(supervisorGroupId);
-        config.writer(chatEvent.setStatus('finished').toJSON());
-        eventsToAdd.push(chatEvent.toJSON());
+      // 使用确定性 ID，iteration 用于区分不同次调用
+      const chatEventId = threadId
+        ? BaseEvent.generateDeterministicId(
+            threadId,
+            runId,
+            NODE_NAME,
+            '/supervisor/chat',
+            iteration
+          )
+        : undefined;
+      const chatEvent = new ChatEvent({
+        role: 'supervisor',
+        deterministicId: chatEventId,
+      });
+      chatEvent.setMessage(textContent);
+      // 设置 parentId 为 supervisor GroupEvent 的 id
+      chatEvent.setParentId(supervisorGroupId);
+      config.writer(chatEvent.setStatus('finished').toJSON());
+      eventsToAdd.push(chatEvent.toJSON());
     }
 
     // 只在第一次创建时更新 supervisor_group_event 和 supervisor_group_id

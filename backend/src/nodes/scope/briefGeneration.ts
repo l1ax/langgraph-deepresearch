@@ -35,11 +35,19 @@ export const writeResearchBrief = traceable(async (
   config: LangGraphRunnableConfig
 ) => {
   const threadId = config.configurable?.thread_id as string | undefined;
-  const checkpointId = config.configurable?.checkpoint_id as string | undefined;
+  const runId = (config.configurable?.run_id || config.metadata?.run_id) as
+    | string
+    | undefined;
   
   // 生成确定性 ID
-  const briefEventId = threadId 
-    ? BaseEvent.generateDeterministicId(threadId, checkpointId, NODE_NAME, '/ai/brief', 0)
+  const briefEventId = threadId
+    ? BaseEvent.generateDeterministicId(
+        threadId,
+        runId,
+        NODE_NAME,
+        '/ai/brief',
+        0
+      )
     : undefined;
   
   const briefEvent = new BriefEvent(briefEventId);

@@ -47,20 +47,19 @@ export const researchLlmCall = traceable(async (
     const textContent = extractContent(response.content);
     if (textContent && config.writer) {
         const threadId = config?.configurable?.thread_id as string | undefined;
-        const checkpointId = config?.configurable?.checkpoint_id as string | undefined;
+        const runId = (config?.configurable?.run_id ||
+          config?.metadata?.run_id) as string | undefined;
         const nodeName = 'researchLlmCall';
         
-        const chatEvent = new ChatEvent(
-            {
-                role: 'researcher',
-                deterministicId: BaseEvent.generateDeterministicId(
-                    threadId!,
-                    checkpointId,
-                    nodeName,
-                    `chat-${textContent.substring(0, 50)}`
-                )
-            }
-        );
+        const chatEvent = new ChatEvent({
+          role: 'researcher',
+          deterministicId: BaseEvent.generateDeterministicId(
+            threadId!,
+            runId,
+            nodeName,
+            `chat-${textContent.substring(0, 50)}`
+          ),
+        });
         chatEvent.setMessage(textContent);
         // 设置 parentId 为 researcher GroupEvent 的 id
         const researcherGroupId = state.researcher_group_id;
