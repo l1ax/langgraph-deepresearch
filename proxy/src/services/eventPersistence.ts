@@ -108,11 +108,7 @@ class EventPersistenceService {
                   `UPDATE "Event" 
                          SET status = $1, content = $2, "updatedAt" = NOW()
                          WHERE id = $3`,
-                  [
-                    eventData.status,
-                    JSON.stringify(eventData.content),
-                    eventData.id,
-                  ]
+                  [eventData.status, eventData.content, eventData.id]
                 );
               } else {
                 // 新事件，获取下一个 sequence 并插入
@@ -130,7 +126,7 @@ class EventPersistenceService {
                     threadId,
                     eventData.eventType,
                     eventData.status,
-                    JSON.stringify(eventData.content),
+                    eventData.content,
                     eventData.parentId || null,
                     nextSequence,
                   ]

@@ -275,54 +275,30 @@ export class Conversation {
 
   @flow.bound
   *restoreChatHistoryByThreadId(threadId: string) {
-    // 从数据库获取 events（Proxy 已自动持久化）
-    let dbEvents: StoredEvent[] = [];
-    try {
-      dbEvents = yield apiService.getEventsByThread(threadId);
-    } catch (error) {
-      console.warn(
-        '[Conversation] Failed to fetch events from database:',
-        error
-      );
-    }
+    // 检查是否有活跃的 run 需要恢复
+    const hasActiveRun =
+      this.threadState?.next && this.threadState.next.length > 0;
 
-    // 转换数据库 events 为 IEventData 格式
-    const dbEventData = dbEvents.map((e) =>
-      this.convertStoredEventToEventData(e)
-    );
-
-    // 获取 threadState 中的 events（LangGraph 的最新状态）
-    const stateEvents: BaseEvent.IEventData[] =
-      this.threadState?.values?.events || [];
-
-    // 合并事件：相同 id 取状态更完成的版本
-    const mergedEvents = this.mergeEvents(dbEventData, stateEvents);
-
-    if (mergedEvents.length > 0) {
-      this.restoreFromEvents(mergedEvents);
-    }
-
-    // 如果有未完成的节点（用户中途退出），检查是否有活跃的 run 需要恢复
-    if (this.threadState?.next && this.threadState.next.length > 0) {
+    if (hasActiveRun) {
+      // ✅ 有活跃的 run，直接 joinStream
+      // Proxy 会预发送数据库中的所有事件，无需在这里获取
       try {
-        // 调用 Proxy 的 resume 端点检查是否有活跃的 run
         const runs: Run[] = yield this.client.runs.list(this.threadId);
-
-        // 复用最后一个 assistantElement 的 executionResponse
-        // 否则创建新的 executionResponse
-        let executionResponse: ExecutionResponse;
-        const lastElement = this.elements[this.elements.length - 1];
-
-        if (lastElement && Conversation.isAssistantElement(lastElement)) {
-          // 复用未完成的 executionResponse
-          executionResponse = lastElement.executionResponse;
-        } else {
-          executionResponse = new ExecutionResponse();
-          this.addExecutionResponse(executionResponse);
-        }
 
         if (runs.length > 0) {
           const run = runs[runs.length - 1];
+
+          // 清空已有的 elements，避免重复渲染
+          this.elements = [];
+
+          // 创建新的 executionResponse 用于接收流事件
+          const executionResponse = new ExecutionResponse();
+          this.addExecutionResponse(executionResponse);
+
+          console.log(
+            `[Conversation] Joining active run ${run.run_id}, proxy will pre-send historical events`
+          );
+
           this.executor.joinExistingRun(
             run.run_id,
             run.assistant_id,
@@ -331,6 +307,33 @@ export class Conversation {
         }
       } catch (error) {
         console.error('[Conversation] Failed to resume active run:', error);
+      }
+    } else {
+      // ❌ 没有活跃的 run，从数据库获取事件并恢复历史
+      let dbEvents: StoredEvent[] = [];
+      try {
+        dbEvents = yield apiService.getEventsByThread(threadId);
+      } catch (error) {
+        console.warn(
+          '[Conversation] Failed to fetch events from database:',
+          error
+        );
+      }
+
+      // 转换数据库 events 为 IEventData 格式
+      const dbEventData = dbEvents.map((e) =>
+        this.convertStoredEventToEventData(e)
+      );
+
+      // 获取 threadState 中的 events（LangGraph 的最新状态）
+      const stateEvents: BaseEvent.IEventData[] =
+        this.threadState?.values?.events || [];
+
+      // 合并事件：相同 id 取状态更完成的版本
+      const mergedEvents = this.mergeEvents(dbEventData, stateEvents);
+
+      if (mergedEvents.length > 0) {
+        this.restoreFromEvents(mergedEvents);
       }
     }
   }

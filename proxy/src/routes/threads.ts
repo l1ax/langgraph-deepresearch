@@ -201,4 +201,123 @@ router.post('/:threadId/runs/stream', async (req, res) => {
     }
 });
 
+/**
+ * GET /threads/:threadId/runs/:runId/stream
+ * 代理 joinStream API，用于恢复正在运行的流
+ * 
+ * 在转发流之前，会先发送数据库中已有的事件，确保前端获得完整数据
+ */
+router.get('/:threadId/runs/:runId/stream', async (req, res) => {
+    try {
+        const { threadId, runId } = req.params;
+        const streamMode = (req.query.stream_mode as string) || 'custom';
+        const lastEventId = req.headers['last-event-id'] as string | undefined;
+
+        console.log(`[Proxy] ========================================`);
+        console.log(`[Proxy] JoinStream request:`);
+        console.log(`[Proxy]   - Thread ID: ${threadId}`);
+        console.log(`[Proxy]   - Run ID: ${runId}`);
+        console.log(`[Proxy]   - Stream Mode: ${streamMode}`);
+        console.log(`[Proxy]   - Last-Event-ID: ${lastEventId || 'none'}`);
+        console.log(`[Proxy] ========================================`);
+
+        if (!threadId || !runId) {
+            return res.status(400).json({ error: 'Thread ID and Run ID are required' });
+        }
+
+        // 设置 SSE 响应头
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Accel-Buffering', 'no');
+
+        let eventCount = 0;
+
+        // 🔑 在 joinStream 之前，先发送数据库中已有的事件，确保前端获得完整数据
+        try {
+            // 先 flush 缓冲区，确保所有事件都已写入数据库
+            await eventPersistence.flush();
+
+            // 从数据库获取该 thread 的所有事件
+            const existingEvents = await prisma.event.findMany({
+                where: { threadId },
+                orderBy: { sequence: 'asc' },
+            });
+
+            console.log(`[Proxy] Pre-sending ${existingEvents.length} existing events for thread ${threadId}`);
+
+            // 按 custom 流格式发送每个事件
+            for (const event of existingEvents) {
+                const eventData = {
+                    id: event.id,
+                    eventType: event.eventType,
+                    status: event.status,
+                    content: event.content,
+                    parentId: event.parentId,
+                };
+                res.write(`event: custom\n`);
+                res.write(`data: ${JSON.stringify(eventData)}\n\n`);
+                eventCount++;
+            }
+        } catch (prefetchError) {
+            console.warn('[Proxy] Failed to pre-fetch events:', prefetchError);
+        }
+
+        // 使用 SDK 的 joinStream
+        const stream = client.runs.joinStream(threadId, runId, {
+            streamMode: streamMode as any,
+            lastEventId,
+        });
+
+        // 流式处理
+        for await (const chunk of stream) {
+            eventCount++;
+
+            try {
+                if (chunk.event) {
+                    res.write(`event: ${chunk.event}\n`);
+                }
+                res.write(`data: ${JSON.stringify(chunk.data)}\n\n`);
+            } catch (writeError) {
+                console.log(
+                    `[Proxy] Failed to write to client (likely disconnected):`,
+                    writeError
+                );
+            }
+
+            // 持久化事件
+            if (chunk.data?.eventType && chunk.data?.id) {
+                eventPersistence.bufferEvent(threadId, {
+                    id: chunk.data.id,
+                    eventType: chunk.data.eventType,
+                    status: chunk.data.status || 'finished',
+                    content: chunk.data.content,
+                    parentId: chunk.data.parentId,
+                });
+            }
+        }
+
+        console.log(
+            `[Proxy] JoinStream completed for thread ${threadId}, events: ${eventCount}`
+        );
+        res.end();
+        await eventPersistence.flush();
+    } catch (error) {
+        console.error('[Proxy] JoinStream error:', error);
+
+        if (!res.headersSent) {
+            res.status(500).json({ error: String(error) });
+        } else {
+            const errorChunk = JSON.stringify({
+                event: 'error',
+                data: { error: String(error) }
+            });
+            res.write(`data: ${errorChunk}\n\n`);
+            res.end();
+        }
+
+        await eventPersistence.flush();
+    }
+});
+
 export default router;
