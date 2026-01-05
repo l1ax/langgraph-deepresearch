@@ -158,6 +158,11 @@ router.post('/:threadId/runs/stream', async (req, res) => {
             res.write(`event: ${chunk.event}\n`);
           }
           res.write(`data: ${JSON.stringify(chunk.data)}\n\n`);
+          // @ts-ignore
+          if (typeof res.flush === 'function') {
+            // @ts-ignore
+            res.flush();
+          }
         } catch (writeError) {
           console.log(
             `[Proxy] Failed to write to client (likely disconnected):`,
@@ -278,6 +283,11 @@ router.get('/:threadId/runs/:runId/stream', async (req, res) => {
                     res.write(`event: ${chunk.event}\n`);
                 }
                 res.write(`data: ${JSON.stringify(chunk.data)}\n\n`);
+                // @ts-ignore - flush 方法可能由某些环境或中间件提供，或者在该上下文中不存在但需要尝试调用
+                if (typeof res.flush === 'function') {
+                    // @ts-ignore
+                    res.flush();
+                }
             } catch (writeError) {
                 console.log(
                     `[Proxy] Failed to write to client (likely disconnected):`,
