@@ -13,10 +13,10 @@ export class ExecutionResponse {
   events: AnyEvent[] = [];
 
   /** 本次执行的 treeView */
-  @observable
+  @observable.ref
   treeView: TreeView = new TreeView();
 
-  @observable
+  @observable.ref
   WorkflowView: WorkflowViews = new WorkflowViews();
 
   /** 执行是否完成 */
