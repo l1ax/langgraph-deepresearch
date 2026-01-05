@@ -48,7 +48,7 @@ export const supervisor = traceable(async (state: typeof StateAnnotation.State, 
     const iteration = state.research_iterations || 0;
     
     let supervisorGroupId = state.supervisor_group_id;
-    let supervisorEvent: GroupEvent | null = null;
+    let supervisorEvent: GroupEvent;
     
     if (!supervisorGroupId) {
       const groupEventId = threadId
@@ -62,9 +62,16 @@ export const supervisor = traceable(async (state: typeof StateAnnotation.State, 
         : undefined;
       supervisorEvent = new GroupEvent('supervisor', groupEventId);
       supervisorGroupId = supervisorEvent.id;
-      if (config?.writer) {
+    } else {
+       // 如果已存在 group ID，重建事件对象以确保能发送到流
+       supervisorEvent = new GroupEvent('supervisor', supervisorGroupId);
+    }
+
+    // CRITICAL: 无论是否新建，都发送一次 GroupEvent
+    // 这确保了在恢复执行或重连时，前端（和 Proxy）一定能先收到父节点事件
+    // 防止后续的 tool_calls 或 chat 事件变成“孤儿”
+    if (config?.writer) {
         config.writer(supervisorEvent.setStatus('running').toJSON());
-      }
     }
 
     const supervisorMessages = state.supervisor_messages || [];

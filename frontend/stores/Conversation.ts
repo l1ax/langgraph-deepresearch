@@ -133,6 +133,20 @@ export class Conversation {
     return element;
   }
 
+  /** 移除指定的 ExecutionResponse 对应的元素 */
+  @action.bound
+  removeElementByExecutionResponse(
+    executionResponse: ExecutionResponse
+  ): void {
+    this.elements = this.elements.filter(
+      (element) =>
+        !(
+          Conversation.isAssistantElement(element) &&
+          element.executionResponse === executionResponse
+        )
+    );
+  }
+
   /** 从 events 数组恢复对话历史 */
   @action.bound
   restoreFromEvents(events: BaseEvent.IEventData[]): void {

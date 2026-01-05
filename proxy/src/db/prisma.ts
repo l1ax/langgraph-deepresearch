@@ -23,6 +23,7 @@ const pool = new Pool({
   max: 10, // 最大连接数
   idleTimeoutMillis: 30000, // 空闲连接超时
   connectionTimeoutMillis: 10000, // 连接超时
+  keepAlive: true, // 开启 TCP keepalive 防止连接意外断开
 });
 
 // 监听连接错误

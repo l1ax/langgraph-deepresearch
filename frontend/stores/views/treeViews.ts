@@ -53,6 +53,18 @@ export class TreeView {
         // 如果是 topLevelEvent，直接添加到 topLevelEventNodes
         if (this.isTopLevelEvent(event)) {
             this.topLevelEventNodes.push(newNode);
+            
+            // 🔎 检查是否有“流浪”的子节点（orphans）属于这个新来的父节点
+            // 这种情况发生在子事件比父事件先到达时
+            for (let i = this.topLevelEventNodes.length - 1; i >= 0; i--) {
+                const orphanNode = this.topLevelEventNodes[i];
+                // 如果 orphanNode 是 newNode 的子节点（且不是 newNode 自己）
+                if (orphanNode !== newNode && orphanNode.event.parentId === event.id) {
+                    // 从顶层移除，添加到 newNode 的 children
+                    this.topLevelEventNodes.splice(i, 1);
+                    newNode.addChild(orphanNode);
+                }
+            }
         } else {
             // 否则，根据 parentId 找到父节点并添加到其 children
             if (event.parentId) {
@@ -60,8 +72,8 @@ export class TreeView {
                 if (parentNode) {
                     parentNode.addChild(newNode);
                 } else {
-                    // 如果父节点还不存在，先作为 topLevelEvent 添加（后续父节点出现时会移动）
-                    // 但根据需求，这种情况应该不会发生，因为 topLevelEvent 应该先出现
+                    // 如果父节点还不存在，先作为 topLevelEvent 添加（成为孤儿节点）
+                    // 等待父节点到达时被“认领”
                     this.topLevelEventNodes.push(newNode);
                 }
             } else {

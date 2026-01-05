@@ -81,11 +81,19 @@ export const supervisorTools = traceable(async (
             : [];
 
         const supervisorGroupId = state.supervisor_group_id;
+        const nodeName = 'supervisorTools';
+
+        // CRITICAL: 确保 supervisor group event 已经发送
+        // 如果是从断点恢复执行 (resume)，可能直接进入 supervisorTools 而跳过了 supervisor 节点
+        // 此时必须重新发送一次 supervisor group event，否则后续的 tool_call events 会成为孤儿
+        if (supervisorGroupId && config?.writer) {
+             const supervisorEvent = new GroupEvent('supervisor', supervisorGroupId);
+             config.writer(supervisorEvent.setStatus('running').toJSON());
+        }
 
         const threadId = config?.configurable?.thread_id as string | undefined;
         const runId = (config?.configurable?.run_id ||
           config?.metadata?.run_id) as string | undefined;
-        const nodeName = 'supervisorTools';
 
         for (const toolCall of toolCalls) {
           // ConductResearch 调用不创建 ToolCallEvent，直接用 research group展示

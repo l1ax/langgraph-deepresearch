@@ -5,6 +5,7 @@ import {
   BaseEvent,
   AnyEvent,
   createEventFromData,
+  ChatEvent,
 } from './events';
 import { ExecutionResponse } from './ExecutionResponse';
 
@@ -15,6 +16,9 @@ const LANGGRAPH_API_URL =
 
 interface IConversation {
   readonly threadId: string;
+  addUserMessage(content: string): any;
+  addExecutionResponse(executionResponse: ExecutionResponse): any;
+  removeElementByExecutionResponse(executionResponse: ExecutionResponse): void;
 }
 
 export class Executor {
@@ -164,7 +168,7 @@ export class Executor {
     this.currentAbortController = new AbortController();
     this.setExecuting(true);
 
-    const currentExecutionResponse = executionResponse || new ExecutionResponse();
+    let currentExecutionResponse = executionResponse || new ExecutionResponse();
 
     try {
       console.log(`[Executor] Joining run ${runId} for thread ${threadId}`);
@@ -176,6 +180,33 @@ export class Executor {
       });
 
       for await (const chunk of streamResponse) {
+        // 检查是否是 /human/chat 事件
+        const data = chunk.data as BaseEvent.IEventData<unknown>;
+        
+        console.log('[DEBUG] joinStream chunk:', data?.eventType, data?.id);
+
+        if (data?.eventType === '/human/chat' && data?.content?.data) {
+           const chatData = data.content.data as ChatEvent.IData;
+           if (chatData.message) {
+             console.log('[DEBUG] Found user message. Current events:', currentExecutionResponse.events.length);
+             // 如果当前的 executionResponse 是空的（刚开始 joinStream），则移除它，避免出现空的 AI 气泡
+             if (currentExecutionResponse.events.length === 0) {
+               console.log('[DEBUG] Removing empty execution response');
+               this.conversation.removeElementByExecutionResponse(currentExecutionResponse);
+             }
+
+             // 这是一个用户消息，直接添加到 conversation
+             this.conversation.addUserMessage(chatData.message);
+
+             // 用户消息后，需要一个新的 executionResponse 来接收后续的 AI 事件
+             const newExecutionResponse = new ExecutionResponse();
+             this.conversation.addExecutionResponse(newExecutionResponse);
+             currentExecutionResponse = newExecutionResponse;
+             
+             continue;
+           }
+        }
+
         this.handleCustomChunk(chunk, currentExecutionResponse);
       }
 
