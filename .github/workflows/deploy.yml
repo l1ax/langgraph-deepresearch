@@ -60,6 +60,7 @@ jobs:
             NEXT_PUBLIC_LANGGRAPH_API_URL=http://${{ secrets.SERVER_HOST }}:2024
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_DEV_MODE=${{ secrets.NEXT_PUBLIC_DEV_MODE }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -93,9 +94,10 @@ jobs:
             echo "3. 验证配置文件内容:"
             head -n 10 docker-compose.yml
 
-            # 5. 设置 Docker 用户名环境变量 (用于 docker-compose.yml 中的镜像名称)
-            echo "4. 设置 Docker 用户名..."
+            # 5. 设置环境变量
+            echo "4. 设置环境变量..."
             export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+            export USE_MEMORY_SAVER=${{ secrets.USE_MEMORY_SAVER }}
 
             # 6. 拉取镜像并重启
             echo "5. 拉取镜像并重启..."

@@ -36,6 +36,7 @@ services:
       - ./backend/.env.production
     environment:
       REDIS_URI: redis://langgraph-redis:6379
+      USE_MEMORY_SAVER: ${USE_MEMORY_SAVER:-false}
     depends_on:
       langgraph-redis:
         condition: service_healthy
